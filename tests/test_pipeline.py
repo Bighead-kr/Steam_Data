@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 from fixtures.steam_samples import (
     RAW_FREE_TO_PLAY,
@@ -72,3 +74,44 @@ def test_upsert_raw_games_is_idempotent(db_session_factory):
             select(GameRaw).where(GameRaw.app_id == 100001)
         ).scalars().all()
         assert len(rows) == 1
+
+
+def test_rerun_updates_existing_game_and_score_data(db_session_factory):
+    """Re-running the pipeline on changed source data must UPDATE existing
+    Game/GameScore rows, not just avoid duplicating them (the cron use case:
+    review counts change between weekly runs)."""
+    app_id, raw = RAW_ROGUELIKE
+
+    with db_session_factory() as session:
+        upsert_raw_games(session, {app_id: raw})
+        session.commit()
+        run_normalizer(session)
+        session.commit()
+        run_scorer(session, prior_strength=50.0, min_cohort_size=1)
+        session.commit()
+
+        review_count_before = session.get(Game, app_id).review_count
+        quality_score_before = session.get(GameScore, app_id).quality_score
+
+        mutated_raw = copy.deepcopy(raw)
+        mutated_raw["steamspy"]["positive"] = 100
+        mutated_raw["steamspy"]["negative"] = 900
+
+        upsert_raw_games(session, {app_id: mutated_raw})
+        session.commit()
+        processed, _skipped = run_normalizer(session)
+        session.commit()
+        # db_session_factory is module-scoped and shared with other tests in this
+        # file, so other raw rows may already exist; assert only on this game.
+        assert processed >= 1
+
+        scored = run_scorer(session, prior_strength=50.0, min_cohort_size=1)
+        session.commit()
+        assert scored >= 1
+
+        game_after = session.get(Game, app_id)
+        score_after = session.get(GameScore, app_id)
+
+        assert game_after.review_count == 1000
+        assert game_after.review_count != review_count_before
+        assert score_after.quality_score != quality_score_before

@@ -89,6 +89,7 @@ def record_pipeline_run(
     games_new: int,
     notes: str | None = None,
 ) -> None:
+    # Create-only: no on_conflict_do_update needed since each run_id is unique per run.
     stmt = insert(PipelineRun).values(
         run_id=run_id,
         started_at=dt.datetime.now(dt.UTC),
