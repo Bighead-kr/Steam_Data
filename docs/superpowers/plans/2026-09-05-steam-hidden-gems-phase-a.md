@@ -834,7 +834,7 @@ def percentile_rank(values: list[float], target: float) -> float:
 
 def _is_scoreable(game: dict) -> bool:
     return (
-        game.get("review_count")
+        game.get("review_count") is not None
         and game.get("review_score_pct") is not None
         and game.get("owners_low") is not None
         and game.get("owners_high") is not None
