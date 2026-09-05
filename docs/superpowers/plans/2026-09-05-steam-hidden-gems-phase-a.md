@@ -149,6 +149,10 @@ dependencies = [
 ]
 ```
 
+Also add `"httpx>=0.27"` to `[project.optional-dependencies].dev` — Task 7's
+`fastapi.testclient.TestClient` requires `httpx` to be installed (FastAPI
+does not pull it in on its own).
+
 - [ ] **Step 7: Reinstall and run full test suite**
 
 Run: `pip install -e ".[dev]" && pytest -v`
