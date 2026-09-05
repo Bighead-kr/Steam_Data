@@ -23,21 +23,29 @@ def upsert_raw_games(session: Session, records: dict[int, dict]) -> None:
     session.execute(stmt)
 
 
-def run_normalizer(session: Session) -> tuple[int, int]:
+def run_normalizer(session: Session, *, batch_size: int = 1000) -> tuple[int, int]:
     raw_rows = session.execute(select(GameRaw)).scalars().all()
     processed = 0
     skipped = 0
     upsert_rows = []
     for raw_row in raw_rows:
-        normalized = normalize_game(raw_row.app_id, raw_row.raw_json)
+        try:
+            normalized = normalize_game(raw_row.app_id, raw_row.raw_json)
+        except Exception:  # noqa: BLE001 - any malformed raw record must not abort the batch
+            # Malformed/incomplete API records (unexpected shapes normalize_game
+            # doesn't defend against) should not abort the whole batch - treat
+            # them the same as the "no release date" skip case below.
+            skipped += 1
+            continue
         if normalized is None:
             skipped += 1
             continue
         upsert_rows.append(normalized)
         processed += 1
 
-    if upsert_rows:
-        stmt = insert(Game).values(upsert_rows)
+    for i in range(0, len(upsert_rows), batch_size):
+        chunk = upsert_rows[i : i + batch_size]
+        stmt = insert(Game).values(chunk)
         update_cols = {
             col.name: stmt.excluded[col.name]
             for col in Game.__table__.columns
@@ -49,7 +57,13 @@ def run_normalizer(session: Session) -> tuple[int, int]:
     return processed, skipped
 
 
-def run_scorer(session: Session, prior_strength: float, min_cohort_size: int) -> int:
+def run_scorer(
+    session: Session,
+    prior_strength: float,
+    min_cohort_size: int,
+    *,
+    batch_size: int = 1000,
+) -> int:
     games = session.execute(select(Game)).scalars().all()
     game_dicts = [
         {
@@ -70,14 +84,16 @@ def run_scorer(session: Session, prior_strength: float, min_cohort_size: int) ->
     for s in scores:
         s["computed_at"] = dt.datetime.now(dt.UTC)
 
-    stmt = insert(GameScore).values(scores)
-    update_cols = {
-        col.name: stmt.excluded[col.name]
-        for col in GameScore.__table__.columns
-        if col.name != "app_id"
-    }
-    stmt = stmt.on_conflict_do_update(index_elements=[GameScore.app_id], set_=update_cols)
-    session.execute(stmt)
+    for i in range(0, len(scores), batch_size):
+        chunk = scores[i : i + batch_size]
+        stmt = insert(GameScore).values(chunk)
+        update_cols = {
+            col.name: stmt.excluded[col.name]
+            for col in GameScore.__table__.columns
+            if col.name != "app_id"
+        }
+        stmt = stmt.on_conflict_do_update(index_elements=[GameScore.app_id], set_=update_cols)
+        session.execute(stmt)
     return len(scores)
 
 
@@ -87,12 +103,13 @@ def record_pipeline_run(
     status: str,
     games_collected: int,
     games_new: int,
+    started_at: dt.datetime,
     notes: str | None = None,
 ) -> None:
     # Create-only: no on_conflict_do_update needed since each run_id is unique per run.
     stmt = insert(PipelineRun).values(
         run_id=run_id,
-        started_at=dt.datetime.now(dt.UTC),
+        started_at=started_at,
         finished_at=dt.datetime.now(dt.UTC),
         status=status,
         games_collected=games_collected,

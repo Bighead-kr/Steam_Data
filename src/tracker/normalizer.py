@@ -39,6 +39,10 @@ def _genres(appdetails: dict, steamspy: dict) -> list[str]:
 
 def _tags(steamspy: dict) -> list[str]:
     tags = steamspy.get("tags") or {}
+    # SteamSpy returns "tags": [] (a JSON array, not an object) for games
+    # with no tags, instead of an empty object - guard against that shape.
+    if not isinstance(tags, dict):
+        return []
     return [tag for tag, _count in sorted(tags.items(), key=lambda kv: kv[1], reverse=True)]
 
 
@@ -48,15 +52,19 @@ def normalize_game(app_id: int, raw: dict) -> dict | None:
     Returns None when the game has no parseable release date (skipped —
     counted as a data-quality issue by the pipeline caller).
     """
-    appdetails = raw.get("appdetails", {})
-    steamspy = raw.get("steamspy", {})
+    # `.get(..., {})` is not enough here: real-world raw JSON can have these
+    # keys explicitly set to null (e.g. Steam's appdetails API returning
+    # {"success": false}), in which case .get() returns None rather than the
+    # default, and a plain `or {}` is needed to fall back safely.
+    appdetails = raw.get("appdetails") or {}
+    steamspy = raw.get("steamspy") or {}
 
     release_date = _parse_release_date(appdetails)
     if release_date is None:
         return None
 
     is_free = appdetails.get("is_free", False)
-    price_cents = 0 if is_free else appdetails.get("price_overview", {}).get("final")
+    price_cents = 0 if is_free else (appdetails.get("price_overview") or {}).get("final")
 
     positive = steamspy.get("positive")
     negative = steamspy.get("negative")

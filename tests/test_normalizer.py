@@ -1,9 +1,12 @@
 from fixtures.steam_samples import (
+    RAW_APPDETAILS_NULL,
     RAW_DLC,
     RAW_FREE_TO_PLAY,
     RAW_GENRE_STRING_ONLY,
     RAW_MISSING_RELEASE_DATE,
+    RAW_PRICE_OVERVIEW_NULL,
     RAW_ROGUELIKE,
+    RAW_STEAMSPY_TAGS_ARRAY,
 )
 
 from tracker.normalizer import normalize_game
@@ -52,3 +55,27 @@ def test_normalize_falls_back_to_steamspy_genre_string():
     assert result["genres"] == ["Simulation", "Management"]
     assert result["tags"] == []
     assert result["cohort_genre"] == "simulation"
+
+
+def test_normalize_handles_null_appdetails_without_raising():
+    """appdetails: null (e.g. Steam's appdetails API returning
+    {"success": false}) must not raise AttributeError. With no appdetails,
+    there is also no release date, so the record is skipped (returns None)."""
+    app_id, raw = RAW_APPDETAILS_NULL
+    assert normalize_game(app_id, raw) is None
+
+
+def test_normalize_handles_null_price_overview():
+    app_id, raw = RAW_PRICE_OVERVIEW_NULL
+    result = normalize_game(app_id, raw)
+    assert result is not None
+    assert result["price_cents"] is None
+
+
+def test_normalize_handles_steamspy_tags_as_array():
+    """SteamSpy returns "tags": [] (a JSON array, not an object) for games
+    with no tags yet - must not raise AttributeError."""
+    app_id, raw = RAW_STEAMSPY_TAGS_ARRAY
+    result = normalize_game(app_id, raw)
+    assert result is not None
+    assert result["tags"] == []

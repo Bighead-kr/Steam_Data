@@ -113,6 +113,97 @@ RAW_LOW_REVIEW_COUNT = (
     },
 )
 
+RAW_APPDETAILS_NULL = (
+    100007,
+    {
+        # Steam's appdetails API returns {"success": false} (no "data" key)
+        # for delisted/invalid app ids; a collector that stores that verbatim
+        # would end up with appdetails: null here rather than the key being
+        # absent entirely - both are plausible, but null is the shape we
+        # guard against explicitly in normalize_game().
+        "appdetails": None,
+        "steamspy": {
+            "genre": "Indie",
+            "tags": {"Indie": 10},
+            "positive": 5,
+            "negative": 1,
+            "owners": "0 .. 20,000",
+            "average_forever": 0,
+        },
+    },
+)
+
+RAW_PRICE_OVERVIEW_NULL = (
+    100008,
+    {
+        "appdetails": {
+            "name": "Paid Game Missing Price",
+            "type": "game",
+            "is_free": False,
+            "price_overview": None,
+            "genres": [{"id": "23", "description": "Indie"}],
+            "release_date": {"coming_soon": False, "date": "3 Jul, 2019"},
+        },
+        "steamspy": {
+            "genre": "Indie",
+            "tags": {"Indie": 10},
+            "positive": 50,
+            "negative": 5,
+            "owners": "20,000 .. 50,000",
+            "average_forever": 100,
+        },
+    },
+)
+
+RAW_STEAMSPY_TAGS_ARRAY = (
+    100009,
+    {
+        "appdetails": {
+            "name": "No Tags Yet",
+            "type": "game",
+            "is_free": False,
+            "price_overview": {"currency": "USD", "final": 999},
+            "genres": [{"id": "23", "description": "Indie"}],
+            "release_date": {"coming_soon": False, "date": "15 Aug, 2020"},
+        },
+        "steamspy": {
+            "genre": "Indie",
+            "tags": [],  # SteamSpy returns an array (not an object) when there are no tags
+            "positive": 20,
+            "negative": 2,
+            "owners": "0 .. 20,000",
+            "average_forever": 30,
+        },
+    },
+)
+
+RAW_MALFORMED_RECORD = (
+    100010,
+    {
+        # release_date is a bare string instead of the expected
+        # {"coming_soon": ..., "date": ...} object - a genuinely malformed/
+        # unexpected API shape that normalize_game() has no specific defense
+        # for, and should be caught and skipped by the pipeline rather than
+        # aborting the whole normalizer batch.
+        "appdetails": {
+            "name": "Malformed Record",
+            "type": "game",
+            "is_free": False,
+            "price_overview": {"currency": "USD", "final": 999},
+            "genres": [{"id": "23", "description": "Indie"}],
+            "release_date": "not-a-dict",
+        },
+        "steamspy": {
+            "genre": "Indie",
+            "tags": {"Indie": 5},
+            "positive": 5,
+            "negative": 1,
+            "owners": "0 .. 20,000",
+            "average_forever": 0,
+        },
+    },
+)
+
 RAW_GENRE_STRING_ONLY = (
     100006,
     {

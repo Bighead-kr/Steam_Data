@@ -1,6 +1,7 @@
 """GitHub Actions cron entrypoint. Raises CollectorNotImplementedError until
 Phase B wires up real Steam/SteamSpy calls — this is expected in Phase A."""
 
+import datetime as dt
 import sys
 import uuid
 from pathlib import Path
@@ -19,6 +20,7 @@ def main() -> None:
     settings = get_settings()
     session_factory = get_sessionmaker(settings.database_url)
     run_id = str(uuid.uuid4())
+    started_at = dt.datetime.now(dt.UTC)
 
     with session_factory() as session:
         try:
@@ -42,6 +44,7 @@ def main() -> None:
                 status="ok",
                 games_collected=len(records),
                 games_new=processed,
+                started_at=started_at,
                 notes=f"skipped={skipped} scored={scored}",
             )
             session.commit()
@@ -53,6 +56,7 @@ def main() -> None:
                 status="failed",
                 games_collected=0,
                 games_new=0,
+                started_at=started_at,
                 notes=str(exc),
             )
             session.commit()
