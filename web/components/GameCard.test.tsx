@@ -35,4 +35,10 @@ describe("GameCard", () => {
     render(<GameCard gem={{ ...baseGem, price_cents: null }} />);
     expect(screen.getByText("가격 정보 없음")).toBeInTheDocument();
   });
+
+  it("shows 상위 1% (not 상위 0%) when quality_pctile is 1.0", () => {
+    render(<GameCard gem={{ ...baseGem, quality_pctile: 1.0 }} />);
+    expect(screen.getByText(/상위 1%/)).toBeInTheDocument();
+    expect(screen.queryByText(/상위 0%/)).not.toBeInTheDocument();
+  });
 });

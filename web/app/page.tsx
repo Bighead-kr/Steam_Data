@@ -8,6 +8,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 
 export default function HomePage() {
   const [genre, setGenre] = useState("indie");
+  const [tag, setTag] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [gems, setGems] = useState<Gem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,7 @@ export default function HomePage() {
     e.preventDefault();
     setLoading(true);
     const params = new URLSearchParams({ genre });
+    if (tag) params.set("tag", tag);
     if (maxPrice) params.set("max_price_cents", String(Number(maxPrice) * 100));
     const response = await fetch(`${API_BASE}/games/gems?${params.toString()}`);
     const data: Gem[] = await response.json();
@@ -31,9 +33,17 @@ export default function HomePage() {
           장르
           <select value={genre} onChange={(e) => setGenre(e.target.value)}>
             <option value="indie">인디</option>
-            <option value="roguelike">로그라이크</option>
             <option value="simulation">시뮬레이션</option>
           </select>
+        </label>
+        <label>
+          태그
+          <input
+            type="text"
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+            placeholder="Roguelike"
+          />
         </label>
         <label>
           최대 예산 (USD)

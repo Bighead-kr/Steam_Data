@@ -20,7 +20,10 @@ function formatPrice(cents: number | null): string {
 }
 
 export function GameCard({ gem }: { gem: Gem }) {
-  const qualityTopPct = Math.round((1 - gem.quality_pctile) * 100);
+  // percentile_rank is inclusive-of-self, so the #1 ranked game in any
+  // cohort always has quality_pctile === 1.0; without the floor that would
+  // render as "상위 0%" for the single most important result.
+  const qualityTopPct = Math.max(1, Math.round((1 - gem.quality_pctile) * 100));
   const exposureBottomPct = Math.round(gem.exposure_pctile * 100);
 
   return (
