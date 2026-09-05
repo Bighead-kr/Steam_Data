@@ -5,9 +5,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from alembic import context
 from tracker.models import Base
 
 # this is the Alembic Config object, which provides

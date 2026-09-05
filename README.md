@@ -29,9 +29,50 @@ Steam 공식 Web API + SteamSpy 데이터로 인디 · 로그라이크 · 시뮬
    pytest
    ```
 
+## API 서버
+
+FastAPI 개발 서버 실행:
+
+```bash
+uvicorn tracker.api.app:app --reload
+```
+
+`GET /games/gems`가 핵심 엔드포인트로, `Game`과 `GameScore`를 조인해
+`hidden_gem_score` 내림차순으로 정렬한 결과를 반환한다. `genre`, `tag`,
+`max_price_cents`, `limit` 쿼리 파라미터로 필터링할 수 있다.
+
+## 파이프라인 실행
+
+```bash
+python scripts/run_pipeline.py
+```
+
+Steam/SteamSpy 수집(`collect_games`, Phase B에서 구현 예정) →
+정규화(`run_normalizer`) → 점수 계산(`run_scorer`) → `pipeline_runs`에 실행
+기록 저장까지 한 번에 수행한다. `.github/workflows/pipeline.yml`이 이
+스크립트를 주기적으로(또는 수동으로) 실행한다.
+
+## 웹앱 (`web/`)
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Next.js로 만든 검색 UI로, `NEXT_PUBLIC_API_BASE_URL`(기본값
+`http://localhost:8000`)로 FastAPI 서버에 요청해 결과를 렌더링한다.
+
+테스트:
+
+```bash
+cd web
+npm test
+```
+
 ## 스키마 변경 규칙
 
-- `src/tracker/schema.py`에서 SQLAlchemy ORM 정의 변경 후, 반드시 Alembic 마이그레이션도 함께 생성하세요.
+- `src/tracker/models.py`에서 SQLAlchemy ORM 정의 변경 후, 반드시 Alembic 마이그레이션도 함께 생성하세요.
 - `alembic revision --autogenerate -m "설명"` 후 검수 및 실행.
 
 ## 스펙 문서
