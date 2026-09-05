@@ -1,8 +1,11 @@
 name: Steam pipeline
 
 on:
-  schedule:
-    - cron: "0 21 * * 0"  # Sun 21:00 UTC = Mon 06:00 KST, weekly
+  # schedule disabled until Phase B ships the real collector and the
+  # STEAM_API_KEY/DATABASE_URL secrets are configured - otherwise this fires
+  # (and fails) every week for no reason. Re-enable once both are in place.
+  # schedule:
+  #   - cron: "0 21 * * 0"  # Sun 21:00 UTC = Mon 06:00 KST, weekly
   workflow_dispatch: {}
 
 jobs:
@@ -14,6 +17,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: python scripts/run_pipeline.py
         env:
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
