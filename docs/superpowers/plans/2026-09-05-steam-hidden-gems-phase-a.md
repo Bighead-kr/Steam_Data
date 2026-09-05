@@ -191,10 +191,8 @@ from testcontainers.postgres import PostgresContainer
 
 
 def test_alembic_upgrade_creates_expected_tables():
-    with PostgresContainer("postgres:16") as postgres:
-        db_url = postgres.get_connection_url().replace(
-            "postgresql://", "postgresql+psycopg://"
-        )
+    with PostgresContainer("postgres:16", driver="psycopg") as postgres:
+        db_url = postgres.get_connection_url()
         env = {**os.environ, "DATABASE_URL": db_url, "STEAM_API_KEY": "test"}
         subprocess.run(["alembic", "upgrade", "head"], check=True, env=env)
 
@@ -946,10 +944,8 @@ from tracker.pipeline import (
 
 @pytest.fixture(scope="module")
 def db_session_factory():
-    with PostgresContainer("postgres:16") as postgres:
-        db_url = postgres.get_connection_url().replace(
-            "postgresql://", "postgresql+psycopg://"
-        )
+    with PostgresContainer("postgres:16", driver="psycopg") as postgres:
+        db_url = postgres.get_connection_url()
         from tracker.db import get_engine, get_sessionmaker
 
         engine = get_engine(db_url)
@@ -1163,10 +1159,8 @@ from tracker.pipeline import run_normalizer, run_scorer, upsert_raw_games
 
 @pytest.fixture(scope="module")
 def client():
-    with PostgresContainer("postgres:16") as postgres:
-        db_url = postgres.get_connection_url().replace(
-            "postgresql://", "postgresql+psycopg://"
-        )
+    with PostgresContainer("postgres:16", driver="psycopg") as postgres:
+        db_url = postgres.get_connection_url()
         from tracker.db import get_engine, get_sessionmaker
         from tracker.api.app import app, get_session
 
