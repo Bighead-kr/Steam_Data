@@ -19,6 +19,24 @@ def _fetch_steamspy_genre(client: httpx.Client, genre: str) -> dict[int, dict]:
     return {int(app_id): record for app_id, record in response.json().items()}
 
 
+STEAM_APPDETAILS_URL = "https://store.steampowered.com/api/appdetails"
+
+
+def _fetch_steam_appdetails(client: httpx.Client, app_id: int) -> dict | None:
+    """Fetch Steam Store's appdetails for one app.
+
+    Returns None when Steam reports success: false (delisted/invalid app
+    id) - normalize_game() already treats a None `appdetails` value as a
+    known, handled case (see RAW_APPDETAILS_NULL fixture).
+    """
+    response = client.get(STEAM_APPDETAILS_URL, params={"appids": str(app_id)})
+    response.raise_for_status()
+    entry = response.json().get(str(app_id)) or {}
+    if not entry.get("success"):
+        return None
+    return entry.get("data")
+
+
 def collect_games(genres: list[str]) -> dict[int, dict]:
     """Fetch candidate games for `genres` from SteamSpy + Steam Store API
     and return {app_id: raw_json} ready for `pipeline.upsert_raw_games`.
