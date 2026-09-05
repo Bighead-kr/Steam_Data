@@ -1,0 +1,23 @@
+{
+  "name": "steam-hidden-gems-web",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.4.8",
+    "@testing-library/react": "16.0.0",
+    "@types/node": "20.14.10",
+    "@types/react": "18.3.3",
+    "jsdom": "24.1.1",
+    "typescript": "5.5.4",
+    "vitest": "2.1.9"
+  }
+}
