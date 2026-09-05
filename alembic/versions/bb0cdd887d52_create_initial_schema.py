@@ -1,8 +1,8 @@
 """create initial schema
 
-Revision ID: 748517d6d376
+Revision ID: bb0cdd887d52
 Revises: 
-Create Date: 2026-09-05 14:50:02.739353
+Create Date: 2026-09-05 14:58:08.296449
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '748517d6d376'
+revision: str = 'bb0cdd887d52'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,13 +24,13 @@ def upgrade() -> None:
     op.create_table('games_raw',
     sa.Column('app_id', sa.Integer(), nullable=False),
     sa.Column('raw_json', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-    sa.Column('fetched_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('fetched_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('app_id')
     )
     op.create_table('pipeline_runs',
     sa.Column('run_id', sa.String(), nullable=False),
-    sa.Column('started_at', sa.DateTime(), nullable=False),
-    sa.Column('finished_at', sa.DateTime(), nullable=True),
+    sa.Column('started_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('finished_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('status', sa.String(), nullable=False),
     sa.Column('games_collected', sa.Integer(), nullable=False),
     sa.Column('games_new', sa.Integer(), nullable=False),
@@ -61,7 +61,7 @@ def upgrade() -> None:
     sa.Column('quality_pctile', sa.Float(), nullable=False),
     sa.Column('exposure_pctile', sa.Float(), nullable=False),
     sa.Column('hidden_gem_score', sa.Float(), nullable=False),
-    sa.Column('computed_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('computed_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['app_id'], ['games.app_id'], ),
     sa.PrimaryKeyConstraint('app_id')
     )

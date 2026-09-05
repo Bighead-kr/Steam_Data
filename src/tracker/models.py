@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -16,7 +16,9 @@ class GameRaw(Base):
 
     app_id: Mapped[int] = mapped_column(primary_key=True)
     raw_json: Mapped[dict] = mapped_column(JSONB)
-    fetched_at: Mapped[dt.datetime] = mapped_column(server_default=func.now())
+    fetched_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Game(Base):
@@ -46,15 +48,17 @@ class GameScore(Base):
     quality_pctile: Mapped[float]
     exposure_pctile: Mapped[float]
     hidden_gem_score: Mapped[float]
-    computed_at: Mapped[dt.datetime] = mapped_column(server_default=func.now())
+    computed_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class PipelineRun(Base):
     __tablename__ = "pipeline_runs"
 
     run_id: Mapped[str] = mapped_column(primary_key=True)
-    started_at: Mapped[dt.datetime]
-    finished_at: Mapped[dt.datetime | None]
+    started_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str]
     games_collected: Mapped[int]
     games_new: Mapped[int]
