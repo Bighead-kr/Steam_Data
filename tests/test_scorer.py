@@ -1,3 +1,5 @@
+import pytest
+
 from tracker.scorer import bayesian_quality_score, percentile_rank, score_games
 
 
@@ -76,3 +78,18 @@ def test_score_games_skips_games_without_review_or_owner_data():
     ]
     results = score_games(games, prior_strength=50.0, min_cohort_size=1)
     assert [r["app_id"] for r in results] == [1]
+
+
+def test_score_games_includes_games_with_zero_review_count():
+    # Zero reviews is valid data (not missing); Bayesian formula collapses to cohort mean.
+    # This game should be scored, not skipped.
+    games = [
+        _game(1, review_count=1000, review_score_pct=90.0, owners_mid=10000),
+        _game(2, review_count=0, review_score_pct=75.0, owners_mid=10000),  # zero reviews, present data
+    ]
+    results = score_games(games, prior_strength=50.0, min_cohort_size=1)
+    app_ids = [r["app_id"] for r in results]
+    assert 2 in app_ids
+    # With 0 reviews, Bayesian score should equal cohort mean (~82.5).
+    game2_result = next(r for r in results if r["app_id"] == 2)
+    assert game2_result["quality_score"] == pytest.approx(82.5, abs=0.1)
