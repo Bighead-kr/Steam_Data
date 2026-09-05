@@ -1,10 +1,20 @@
+"""Collect Steam/SteamSpy candidate games for the configured target genres.
+
+For each genre, fetch SteamSpy's per-genre candidate list, then enrich each
+candidate app id with Steam Store's appdetails. Returns the exact
+{app_id: {"appdetails": ..., "steamspy": ...}} shape `normalize_game()`
+expects and `pipeline.upsert_raw_games()` stores verbatim.
+"""
+
+from __future__ import annotations
+
+import time
+from typing import Callable
+
 import httpx
 
 STEAMSPY_URL = "https://steamspy.com/api.php"
-
-
-class CollectorNotImplementedError(NotImplementedError):
-    """Raised because the real Steam/SteamSpy collector ships in Phase B."""
+STEAM_APPDETAILS_URL = "https://store.steampowered.com/api/appdetails"
 
 
 def _fetch_steamspy_genre(client: httpx.Client, genre: str) -> dict[int, dict]:
@@ -17,9 +27,6 @@ def _fetch_steamspy_genre(client: httpx.Client, genre: str) -> dict[int, dict]:
     response = client.get(STEAMSPY_URL, params={"request": "genre", "genre": genre})
     response.raise_for_status()
     return {int(app_id): record for app_id, record in response.json().items()}
-
-
-STEAM_APPDETAILS_URL = "https://store.steampowered.com/api/appdetails"
 
 
 def _fetch_steam_appdetails(client: httpx.Client, app_id: int) -> dict | None:
@@ -37,15 +44,34 @@ def _fetch_steam_appdetails(client: httpx.Client, app_id: int) -> dict | None:
     return entry.get("data")
 
 
-def collect_games(genres: list[str]) -> dict[int, dict]:
+def collect_games(
+    genres: list[str],
+    *,
+    client: httpx.Client | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> dict[int, dict]:
     """Fetch candidate games for `genres` from SteamSpy + Steam Store API
     and return {app_id: raw_json} ready for `pipeline.upsert_raw_games`.
 
-    Not implemented in Phase A — Phase A develops normalizer/scorer/API
-    against tests/fixtures/steam_samples.py instead. See
-    docs/superpowers/specs/2026-09-05-steam-hidden-gems-design.md.
+    One HTTP call at a time with a sleep between calls, per SteamSpy's and
+    Steam Store's courtesy rate limit (~1 req/sec, undocumented but
+    conventional for both).
     """
-    raise CollectorNotImplementedError(
-        "collect_games ships in Phase B once real Steam/SteamSpy calls are "
-        "wired up; Phase A uses tests/fixtures/steam_samples.py instead."
-    )
+    owned_client = client is None
+    client = client or httpx.Client(timeout=10.0)
+    try:
+        candidates: dict[int, dict] = {}
+        for genre in genres:
+            candidates.update(_fetch_steamspy_genre(client, genre))
+            sleep(1.0)
+
+        results: dict[int, dict] = {}
+        for app_id, steamspy_record in candidates.items():
+            appdetails = _fetch_steam_appdetails(client, app_id)
+            results[app_id] = {"appdetails": appdetails, "steamspy": steamspy_record}
+            sleep(1.0)
+
+        return results
+    finally:
+        if owned_client:
+            client.close()
