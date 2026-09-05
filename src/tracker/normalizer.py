@@ -24,7 +24,7 @@ def _parse_release_date(appdetails: dict) -> dt.date | None:
     if not raw_date:
         return None
     try:
-        return dt.datetime.strptime(raw_date, "%d %b, %Y").date()
+        return dt.datetime.strptime(raw_date, "%d %b, %Y").date()  # noqa: DTZ007 - timezone irrelevant for date-only value
     except ValueError:
         return None
 

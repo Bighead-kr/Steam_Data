@@ -5,6 +5,7 @@ from fixtures.steam_samples import (
     RAW_MISSING_RELEASE_DATE,
     RAW_ROGUELIKE,
 )
+
 from tracker.normalizer import normalize_game
 
 
