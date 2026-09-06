@@ -16,6 +16,7 @@ from testcontainers.postgres import PostgresContainer
 
 from tracker.models import Base, Game, GameRaw, GameScore
 from tracker.pipeline import (
+    get_known_app_ids,
     record_pipeline_run,
     run_normalizer,
     run_scorer,
@@ -67,6 +68,14 @@ def test_full_pipeline_normalizes_and_scores_fixtures(db_session_factory):
             started_at=dt.datetime.now(dt.UTC),
         )
         session.commit()
+
+
+def test_get_known_app_ids_returns_existing_raw_app_ids(db_session_factory):
+    with db_session_factory() as session:
+        upsert_raw_games(session, dict([RAW_ROGUELIKE, RAW_FREE_TO_PLAY]))
+        session.commit()
+
+        assert get_known_app_ids(session) >= {100001, 100002}
 
 
 def test_upsert_raw_games_is_idempotent(db_session_factory):

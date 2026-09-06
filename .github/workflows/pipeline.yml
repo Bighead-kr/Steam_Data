@@ -1,11 +1,8 @@
 name: Steam pipeline
 
 on:
-  # schedule disabled until Phase B ships the real collector and the
-  # STEAM_API_KEY/DATABASE_URL secrets are configured - otherwise this fires
-  # (and fails) every week for no reason. Re-enable once both are in place.
-  # schedule:
-  #   - cron: "0 21 * * 0"  # Sun 21:00 UTC = Mon 06:00 KST, weekly
+  schedule:
+    - cron: "0 21 * * *"  # 21:00 UTC daily = 06:00 KST
   workflow_dispatch: {}
 
 jobs:

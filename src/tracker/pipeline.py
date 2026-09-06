@@ -11,6 +11,10 @@ from tracker.normalizer import normalize_game
 from tracker.scorer import score_games
 
 
+def get_known_app_ids(session: Session) -> set[int]:
+    return set(session.execute(select(GameRaw.app_id)).scalars().all())
+
+
 def upsert_raw_games(session: Session, records: dict[int, dict]) -> None:
     if not records:
         return

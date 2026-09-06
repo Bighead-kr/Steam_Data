@@ -11,9 +11,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from tracker.collector import collect_games
 from tracker.config import get_settings
 from tracker.db import get_sessionmaker
-from tracker.pipeline import record_pipeline_run, run_normalizer, run_scorer, upsert_raw_games
+from tracker.pipeline import (
+    get_known_app_ids,
+    record_pipeline_run,
+    run_normalizer,
+    run_scorer,
+    upsert_raw_games,
+)
 
 GENRES = ["indie", "roguelike", "simulation", "management"]
+# Steam Store's undocumented rate limit (~200 req/5min per IP) means a single
+# run can only safely enrich a few thousand new games - candidates per genre
+# can run into the tens of thousands, so collection continues across days.
+DAILY_ENRICH_LIMIT = 5000
 
 
 def main() -> None:
@@ -24,7 +34,10 @@ def main() -> None:
 
     with session_factory() as session:
         try:
-            records = collect_games(GENRES)
+            known_app_ids = get_known_app_ids(session)
+            records = collect_games(
+                GENRES, known_app_ids=frozenset(known_app_ids), limit=DAILY_ENRICH_LIMIT
+            )
             upsert_raw_games(session, records)
             session.commit()
 

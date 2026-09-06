@@ -89,8 +89,50 @@ def test_collect_games_merges_steamspy_and_appdetails_across_genres():
             "steamspy": {"genre": "Roguelike", "positive": 3, "negative": 0},
         },
     }
-    # 2 genre calls + 2 per-app appdetails calls = 4 sleeps (one after each call)
-    assert len(sleeps) == 4
+    # 2 genre calls (steamspy pace) + 2 per-app appdetails calls (steam store pace)
+    assert sleeps == [1.0, 1.0, 1.5, 1.5]
+
+
+def test_collect_games_skips_known_app_ids():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("request") == "genre":
+            return httpx.Response(
+                200,
+                json={
+                    "100001": {"genre": "Indie", "positive": 10, "negative": 1},
+                    "100002": {"genre": "Indie", "positive": 5, "negative": 0},
+                },
+            )
+        app_id = int(request.url.params["appids"])
+        return httpx.Response(200, json={str(app_id): {"success": True, "data": {"name": str(app_id)}}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    result = collect_games(
+        ["Indie"], client=client, known_app_ids=frozenset({100001}), sleep=lambda _: None
+    )
+
+    assert list(result.keys()) == [100002]
+
+
+def test_collect_games_respects_limit_on_new_candidates():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("request") == "genre":
+            return httpx.Response(
+                200,
+                json={
+                    str(app_id): {"genre": "Indie", "positive": 1, "negative": 0}
+                    for app_id in (100001, 100002, 100003)
+                },
+            )
+        app_id = int(request.url.params["appids"])
+        return httpx.Response(200, json={str(app_id): {"success": True, "data": {"name": str(app_id)}}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    result = collect_games(["Indie"], client=client, limit=2, sleep=lambda _: None)
+
+    assert len(result) == 2
 
 
 def test_collect_games_keeps_appdetails_none_when_steam_reports_failure():
