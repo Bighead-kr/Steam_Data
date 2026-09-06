@@ -1,28 +1,13 @@
-import { defineConfig, defineProject } from "vitest/config";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   esbuild: {
     jsx: "automatic",
   },
   test: {
+    environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    environmentMatchGlobs: [["**/*.test.ts", "node"]],
   },
-  projects: [
-    defineProject({
-      name: "unit",
-      test: {
-        environment: "node",
-        include: ["**/*.test.ts"],
-      },
-    }),
-    defineProject({
-      name: "components",
-      test: {
-        environment: "jsdom",
-        setupFiles: ["./vitest.setup.ts"],
-        include: ["**/*.test.tsx"],
-      },
-    }),
-  ],
 });
