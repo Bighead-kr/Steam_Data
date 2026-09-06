@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-import { isHiddenGemZone } from "../lib/percentile";
+import {
+  GEM_ZONE_MAX_EXPOSURE_PCTILE,
+  GEM_ZONE_MIN_QUALITY_PCTILE,
+  isHiddenGemZone,
+} from "../lib/percentile";
 import type { Gem } from "../lib/types";
 
 const WIDTH = 480;
@@ -10,8 +14,6 @@ const HEIGHT = 360;
 const PADDING = 32;
 const PLOT_WIDTH = WIDTH - PADDING * 2;
 const PLOT_HEIGHT = HEIGHT - PADDING * 2;
-const GEM_ZONE_MAX_EXPOSURE = 0.3;
-const GEM_ZONE_MIN_QUALITY = 0.7;
 const ACCENT_GEM = "#7c6af0";
 const INK_MUTED = "#6a6f7e";
 
@@ -75,8 +77,8 @@ export function GemScatterChart({
           <rect
             x={PADDING}
             y={PADDING}
-            width={GEM_ZONE_MAX_EXPOSURE * PLOT_WIDTH}
-            height={(1 - GEM_ZONE_MIN_QUALITY) * PLOT_HEIGHT}
+            width={GEM_ZONE_MAX_EXPOSURE_PCTILE * PLOT_WIDTH}
+            height={(1 - GEM_ZONE_MIN_QUALITY_PCTILE) * PLOT_HEIGHT}
             fill={ACCENT_GEM}
             fillOpacity={0.12}
           />
