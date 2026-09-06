@@ -9,7 +9,7 @@ expects and `pipeline.upsert_raw_games()` stores verbatim.
 from __future__ import annotations
 
 import time
-from typing import Callable
+from collections.abc import Callable
 
 import httpx
 
