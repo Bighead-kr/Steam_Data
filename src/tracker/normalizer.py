@@ -24,7 +24,11 @@ def _parse_release_date(appdetails: dict) -> dt.date | None:
     if not raw_date:
         return None
     try:
-        return dt.datetime.strptime(raw_date, "%d %b, %Y").date()  # noqa: DTZ007 - timezone irrelevant for date-only value
+        # Steam Store's date format depends on the `cc` (country code) param
+        # the collector sends with the appdetails request - with cc=us
+        # (pinned to get USD pricing, see collector.py) it's month-first,
+        # e.g. "Jul 9, 2026", not the day-first "9 Jul, 2026".
+        return dt.datetime.strptime(raw_date, "%b %d, %Y").date()  # noqa: DTZ007 - timezone irrelevant for date-only value
     except ValueError:
         return None
 

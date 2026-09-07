@@ -13,7 +13,7 @@ RAW_ROGUELIKE = (
             "is_free": False,
             "price_overview": {"currency": "USD", "final": 1999},
             "genres": [{"id": "23", "description": "Indie"}, {"id": "3", "description": "RPG"}],
-            "release_date": {"coming_soon": False, "date": "12 Mar, 2021"},
+            "release_date": {"coming_soon": False, "date": "Mar 12, 2021"},
         },
         "steamspy": {
             "genre": "Indie, RPG, Roguelike",
@@ -34,7 +34,7 @@ RAW_FREE_TO_PLAY = (
             "type": "game",
             "is_free": True,
             "genres": [{"id": "23", "description": "Indie"}],
-            "release_date": {"coming_soon": False, "date": "1 Jan, 2022"},
+            "release_date": {"coming_soon": False, "date": "Jan 1, 2022"},
         },
         "steamspy": {
             "genre": "Indie, Roguelike",
@@ -56,7 +56,7 @@ RAW_DLC = (
             "is_free": False,
             "price_overview": {"currency": "USD", "final": 499},
             "genres": [{"id": "23", "description": "Indie"}],
-            "release_date": {"coming_soon": False, "date": "12 Mar, 2021"},
+            "release_date": {"coming_soon": False, "date": "Mar 12, 2021"},
         },
         "steamspy": {
             "genre": "Indie",
@@ -100,7 +100,7 @@ RAW_LOW_REVIEW_COUNT = (
             "is_free": False,
             "price_overview": {"currency": "USD", "final": 999},
             "genres": [{"id": "23", "description": "Indie"}, {"id": "3", "description": "RPG"}],
-            "release_date": {"coming_soon": False, "date": "5 Jun, 2021"},
+            "release_date": {"coming_soon": False, "date": "Jun 5, 2021"},
         },
         "steamspy": {
             "genre": "Indie, Roguelike",
@@ -142,7 +142,7 @@ RAW_PRICE_OVERVIEW_NULL = (
             "is_free": False,
             "price_overview": None,
             "genres": [{"id": "23", "description": "Indie"}],
-            "release_date": {"coming_soon": False, "date": "3 Jul, 2019"},
+            "release_date": {"coming_soon": False, "date": "Jul 3, 2019"},
         },
         "steamspy": {
             "genre": "Indie",
@@ -164,7 +164,7 @@ RAW_STEAMSPY_TAGS_ARRAY = (
             "is_free": False,
             "price_overview": {"currency": "USD", "final": 999},
             "genres": [{"id": "23", "description": "Indie"}],
-            "release_date": {"coming_soon": False, "date": "15 Aug, 2020"},
+            "release_date": {"coming_soon": False, "date": "Aug 15, 2020"},
         },
         "steamspy": {
             "genre": "Indie",
@@ -213,7 +213,7 @@ RAW_GENRE_STRING_ONLY = (
             "is_free": False,
             "price_overview": {"currency": "USD", "final": 2499},
             "genres": [],
-            "release_date": {"coming_soon": False, "date": "20 Nov, 2020"},
+            "release_date": {"coming_soon": False, "date": "Nov 20, 2020"},
         },
         "steamspy": {
             "genre": "Simulation, Management",

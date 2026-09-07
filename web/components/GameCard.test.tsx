@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { GameCard } from "./GameCard";
 
@@ -40,5 +40,22 @@ describe("GameCard", () => {
     render(<GameCard gem={{ ...baseGem, quality_pctile: 1.0 }} />);
     expect(screen.getByText(/상위 1%/)).toBeInTheDocument();
     expect(screen.queryByText(/상위 0%/)).not.toBeInTheDocument();
+  });
+
+  it("calls onSelect with the gem when clicked", () => {
+    const handleSelect = vi.fn();
+    render(<GameCard gem={baseGem} onSelect={handleSelect} />);
+    fireEvent.click(screen.getByText("Dungeon of Echoes"));
+    expect(handleSelect).toHaveBeenCalledWith(baseGem);
+  });
+
+  it("shows a 숨은 명작 badge when the gem is in the hidden-gem zone", () => {
+    render(<GameCard gem={{ ...baseGem, quality_pctile: 0.9, exposure_pctile: 0.1 }} />);
+    expect(screen.getByText("숨은 명작")).toBeInTheDocument();
+  });
+
+  it("does not show the badge outside the hidden-gem zone", () => {
+    render(<GameCard gem={{ ...baseGem, quality_pctile: 0.5, exposure_pctile: 0.8 }} />);
+    expect(screen.queryByText("숨은 명작")).not.toBeInTheDocument();
   });
 });

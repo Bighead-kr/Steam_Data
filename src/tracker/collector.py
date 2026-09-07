@@ -36,7 +36,11 @@ def _fetch_steam_appdetails(client: httpx.Client, app_id: int) -> dict | None:
     id) - normalize_game() already treats a None `appdetails` value as a
     known, handled case (see RAW_APPDETAILS_NULL fixture).
     """
-    response = client.get(STEAM_APPDETAILS_URL, params={"appids": str(app_id)})
+    # Without `cc`, Steam prices the response by the requester's IP geolocation
+    # (observed: a Korea-based request got price_overview in KRW, e.g.
+    # 2,980,000 = W29,800 - `price_cents` is documented and consumed
+    # everywhere downstream as USD, so pin the country explicitly).
+    response = client.get(STEAM_APPDETAILS_URL, params={"appids": str(app_id), "cc": "us"})
     response.raise_for_status()
     entry = response.json().get(str(app_id)) or {}
     if not entry.get("success"):

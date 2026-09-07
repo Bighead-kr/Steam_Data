@@ -60,8 +60,17 @@ npm install
 npm run dev
 ```
 
-Next.js로 만든 검색 UI로, `NEXT_PUBLIC_API_BASE_URL`(기본값
-`http://localhost:8000`)로 FastAPI 서버에 요청해 결과를 렌더링한다.
+Next.js(App Router) + Tailwind CSS로 만든 검색 UI로, `NEXT_PUBLIC_API_BASE_URL`
+(기본값 `http://localhost:8000`)로 FastAPI 서버에 요청해 결과를 렌더링한다.
+필터 상태는 URL 쿼리스트링에 유지된다.
+
+- `/` — 필터(장르/태그/예산), 품질·노출 백분위 사분면 산점도, 랭킹 카드 그리드.
+  카드나 산점도 점을 클릭하면 점수 근거를 보여주는 상세 모달이 열린다.
+- `/about` — 스코어링 로직·데이터 소스·한계를 설명하는 방법론 페이지.
+
+디자인 토큰(`web/app/globals.css`)과 컴포넌트 인벤토리는
+[웹앱 디자인 시스템 설계 문서](docs/superpowers/specs/2026-09-06-webapp-design-system-design.md)에
+정리돼 있다.
 
 테스트:
 

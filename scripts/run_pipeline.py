@@ -24,6 +24,13 @@ GENRES = ["indie", "roguelike", "simulation", "management"]
 # run can only safely enrich a few thousand new games - candidates per genre
 # can run into the tens of thousands, so collection continues across days.
 DAILY_ENRICH_LIMIT = 5000
+# collect_games() blocks for the whole batch before returning, so a large
+# DAILY_ENRICH_LIMIT run can take hours - long enough that a dropped DB
+# connection (observed in practice against Supabase's pooler) loses the
+# entire run's progress. Committing in small batches bounds that loss to at
+# most one batch, and makes newly-collected games queryable well before the
+# full run finishes.
+BATCH_ENRICH_LIMIT = 50
 
 
 def main() -> None:
@@ -32,48 +39,65 @@ def main() -> None:
     run_id = str(uuid.uuid4())
     started_at = dt.datetime.now(dt.UTC)
 
-    with session_factory() as session:
-        try:
-            known_app_ids = get_known_app_ids(session)
-            records = collect_games(
-                GENRES, known_app_ids=frozenset(known_app_ids), limit=DAILY_ENRICH_LIMIT
-            )
-            upsert_raw_games(session, records)
-            session.commit()
+    total_collected = 0
 
+    try:
+        while total_collected < DAILY_ENRICH_LIMIT:
+            batch_limit = min(BATCH_ENRICH_LIMIT, DAILY_ENRICH_LIMIT - total_collected)
+            with session_factory() as session:
+                known_app_ids = get_known_app_ids(session)
+                records = collect_games(
+                    GENRES, known_app_ids=frozenset(known_app_ids), limit=batch_limit
+                )
+                if not records:
+                    break
+
+                upsert_raw_games(session, records)
+                session.commit()
+
+            total_collected += len(records)
+
+            if len(records) < batch_limit:
+                # Fewer new candidates than asked for means the genre
+                # candidate lists are exhausted for today - further looping
+                # would just repeat empty SteamSpy fetches.
+                break
+
+        # normalizer/scorer scan the whole games_raw table each call, so they
+        # run once here rather than per batch above - looping them per batch
+        # would rescan already-processed rows on every iteration and inflate
+        # the processed/scored counts with repeated re-upserts of unchanged
+        # rows.
+        with session_factory() as session:
             processed, skipped = run_normalizer(session)
-            session.commit()
-
             scored = run_scorer(
                 session,
                 prior_strength=settings.bayesian_prior_strength,
                 min_cohort_size=settings.min_cohort_size,
             )
-            session.commit()
-
             record_pipeline_run(
                 session,
                 run_id=run_id,
                 status="ok",
-                games_collected=len(records),
+                games_collected=total_collected,
                 games_new=processed,
                 started_at=started_at,
                 notes=f"skipped={skipped} scored={scored}",
             )
             session.commit()
-        except Exception as exc:
-            session.rollback()
+    except Exception as exc:
+        with session_factory() as session:
             record_pipeline_run(
                 session,
                 run_id=run_id,
                 status="failed",
-                games_collected=0,
+                games_collected=total_collected,
                 games_new=0,
                 started_at=started_at,
                 notes=str(exc),
             )
             session.commit()
-            raise
+        raise
 
 
 if __name__ == "__main__":

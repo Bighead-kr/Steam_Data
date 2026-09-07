@@ -1,0 +1,20 @@
+@import "pretendard/dist/web/static/pretendard.css";
+@import "tailwindcss";
+
+@theme {
+  --color-bg-void: #12141a;
+  --color-surface: #1b1e27;
+  --color-surface-raised: #242835;
+  --color-border: #2e3340;
+  --color-ink-primary: #edeef2;
+  --color-ink-secondary: #9ba0af;
+  --color-ink-muted: #6a6f7e;
+  --color-accent-gem: #7c6af0;
+  --font-sans: "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--color-bg-void);
+  color: var(--color-ink-primary);
+  font-family: var(--font-sans);
+}

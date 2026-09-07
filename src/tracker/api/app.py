@@ -1,6 +1,7 @@
 from collections.abc import Generator
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,17 @@ from tracker.db import get_sessionmaker
 from tracker.models import Game, GameScore
 
 app = FastAPI(title="Steam Hidden Gems API")
+
+# Public, read-only, unauthenticated API - the Next.js webapp (a different
+# origin/port in dev, a different domain once deployed) needs to call it
+# directly from the browser. No cookies/credentials are involved, so a
+# permissive origin policy carries no meaningful risk here.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
 
 def get_session() -> Generator[Session, None, None]:
