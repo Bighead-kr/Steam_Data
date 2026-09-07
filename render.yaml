@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: steam-hidden-gems-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -e .
+    startCommand: alembic upgrade head && uvicorn tracker.api.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL
+        sync: false
+      - key: STEAM_API_KEY
+        sync: false
