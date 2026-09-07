@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { EmptyState } from "../components/EmptyState";
@@ -15,7 +15,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 const CHART_LIMIT = 200;
 const CARD_LIMIT = 30;
 
-export default function HomePage() {
+function HomePageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -78,5 +78,16 @@ export default function HomePage() {
       </section>
       {selected && <GameDetailModal gem={selected} onClose={() => setSelected(null)} />}
     </main>
+  );
+}
+
+// useSearchParams() opts a client component out of static rendering unless
+// it's wrapped in Suspense - without this, `next build` fails with
+// "useSearchParams() should be wrapped in a suspense boundary at page '/'".
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomePageContent />
+    </Suspense>
   );
 }
