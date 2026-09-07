@@ -40,6 +40,15 @@ def client():
         yield TestClient(app)
 
 
+def test_cors_allows_browser_requests_from_any_origin(client):
+    """The Next.js webapp calls this API cross-origin (different port in dev,
+    different domain once deployed); without CORS headers the browser's
+    fetch() fails before the response body is ever read."""
+    response = client.get("/games/gems", headers={"Origin": "http://localhost:3000"})
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "*"
+
+
 def test_list_gems_returns_ranked_results(client):
     response = client.get("/games/gems")
     assert response.status_code == 200
