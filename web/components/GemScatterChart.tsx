@@ -16,6 +16,13 @@ const PLOT_WIDTH = WIDTH - PADDING * 2;
 const PLOT_HEIGHT = HEIGHT - PADDING * 2;
 const ACCENT_GEM = "#7c6af0";
 const INK_MUTED = "#6a6f7e";
+// SteamSpy reports owners as a coarse bucket range (e.g. "100,000 ..
+// 200,000"), so many games in the same cohort share the exact same
+// owners_mid and land on the identical exposure_pctile - without jitter
+// they render as a single stack of overlapping dots that reads as a solid
+// vertical bar. The jitter spreads ties into a legible cluster; it never
+// changes which cohort/zone a point is in, only its on-screen position.
+const JITTER_RADIUS = 5;
 
 function toX(exposurePctile: number): number {
   return PADDING + exposurePctile * PLOT_WIDTH;
@@ -23,6 +30,24 @@ function toX(exposurePctile: number): number {
 
 function toY(qualityPctile: number): number {
   return PADDING + (1 - qualityPctile) * PLOT_HEIGHT;
+}
+
+// Deterministic pseudo-random offset in [-JITTER_RADIUS, JITTER_RADIUS],
+// seeded by app_id (and an axis-specific seed) so a point's jitter is
+// stable across re-renders instead of jumping around on every hover.
+function jitter(appId: number, axisSeed: number): number {
+  const raw = Math.sin(appId * 12.9898 + axisSeed * 78.233) * 43758.5453;
+  const fraction = raw - Math.floor(raw);
+  return (fraction - 0.5) * 2 * JITTER_RADIUS;
+}
+
+function pointPosition(gem: Gem): { x: number; y: number } {
+  const x = toX(gem.exposure_pctile) + jitter(gem.app_id, 1);
+  const y = toY(gem.quality_pctile) + jitter(gem.app_id, 2);
+  return {
+    x: Math.min(WIDTH - PADDING, Math.max(PADDING, x)),
+    y: Math.min(HEIGHT - PADDING, Math.max(PADDING, y)),
+  };
 }
 
 export function GemScatterChart({
@@ -95,12 +120,13 @@ export function GemScatterChart({
           <line x1={PADDING} y1={PADDING} x2={PADDING} y2={HEIGHT - PADDING} stroke="#2e3340" />
           {gems.map((gem) => {
             const isGem = isHiddenGemZone(gem.quality_pctile, gem.exposure_pctile);
+            const { x, y } = pointPosition(gem);
             return (
               <circle
                 key={gem.app_id}
                 data-testid={`point-${gem.app_id}`}
-                cx={toX(gem.exposure_pctile)}
-                cy={toY(gem.quality_pctile)}
+                cx={x}
+                cy={y}
                 r={5}
                 fill={isGem ? ACCENT_GEM : INK_MUTED}
                 className="cursor-pointer"
@@ -110,16 +136,15 @@ export function GemScatterChart({
               />
             );
           })}
-          {hovered && (
-            <text
-              x={toX(hovered.exposure_pctile) + 8}
-              y={toY(hovered.quality_pctile) - 8}
-              fill="#edeef2"
-              fontSize={11}
-            >
-              {hovered.name}
-            </text>
-          )}
+          {hovered &&
+            (() => {
+              const { x, y } = pointPosition(hovered);
+              return (
+                <text x={x + 8} y={y - 8} fill="#edeef2" fontSize={11}>
+                  {hovered.name}
+                </text>
+              );
+            })()}
         </svg>
       )}
     </div>
