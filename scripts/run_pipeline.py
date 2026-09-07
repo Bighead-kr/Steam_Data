@@ -40,6 +40,15 @@ def main() -> None:
     started_at = dt.datetime.now(dt.UTC)
 
     total_collected = 0
+    # run_normalizer()/run_scorer() scan the whole games_raw/games tables on
+    # every call, so their return values already describe the full current
+    # state, not just the latest batch's delta - keep only the most recent
+    # call's numbers for the summary row, never sum them across batches (an
+    # earlier version summed these and reported games_new=723 for a 100-game
+    # run instead of the correct ~100).
+    processed = 0
+    skipped = 0
+    scored = 0
 
     try:
         while total_collected < DAILY_ENRICH_LIMIT:
@@ -53,6 +62,17 @@ def main() -> None:
                     break
 
                 upsert_raw_games(session, records)
+                # Normalize/score after every batch (not just once at the
+                # end) so `games`/`game_scores` - the tables the webapp
+                # actually queries - stay current while a large run is still
+                # in progress, instead of only updating once the whole run
+                # (which can take hours) finishes or fails.
+                processed, skipped = run_normalizer(session)
+                scored = run_scorer(
+                    session,
+                    prior_strength=settings.bayesian_prior_strength,
+                    min_cohort_size=settings.min_cohort_size,
+                )
                 session.commit()
 
             total_collected += len(records)
@@ -63,18 +83,7 @@ def main() -> None:
                 # would just repeat empty SteamSpy fetches.
                 break
 
-        # normalizer/scorer scan the whole games_raw table each call, so they
-        # run once here rather than per batch above - looping them per batch
-        # would rescan already-processed rows on every iteration and inflate
-        # the processed/scored counts with repeated re-upserts of unchanged
-        # rows.
         with session_factory() as session:
-            processed, skipped = run_normalizer(session)
-            scored = run_scorer(
-                session,
-                prior_strength=settings.bayesian_prior_strength,
-                min_cohort_size=settings.min_cohort_size,
-            )
             record_pipeline_run(
                 session,
                 run_id=run_id,
@@ -92,7 +101,7 @@ def main() -> None:
                 run_id=run_id,
                 status="failed",
                 games_collected=total_collected,
-                games_new=0,
+                games_new=processed,
                 started_at=started_at,
                 notes=str(exc),
             )
