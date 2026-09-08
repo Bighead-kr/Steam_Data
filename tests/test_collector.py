@@ -151,3 +151,31 @@ def test_collect_games_keeps_appdetails_none_when_steam_reports_failure():
             "steamspy": {"genre": "Indie", "positive": 1, "negative": 0},
         }
     }
+
+
+def test_collect_games_skips_a_single_appdetails_server_error_without_losing_the_batch():
+    """Regression test: Steam Store occasionally 500s for one app id with
+    no documented cause. A multi-hour real run lost its entire, otherwise-
+    successful progress when this happened on one app id near the end of
+    the batch - collect_games() must skip just that app id and keep the
+    others already collected, not raise and lose everything."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.params.get("request") == "genre":
+            return httpx.Response(
+                200,
+                json={
+                    str(app_id): {"genre": "Indie", "positive": 1, "negative": 0}
+                    for app_id in (100001, 100002, 100003)
+                },
+            )
+        app_id = int(request.url.params["appids"])
+        if app_id == 100002:
+            return httpx.Response(500, text="Internal Server Error")
+        return httpx.Response(200, json={str(app_id): {"success": True, "data": {"name": str(app_id)}}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    result = collect_games(["Indie"], client=client, sleep=lambda _: None)
+
+    assert set(result.keys()) == {100001, 100003}

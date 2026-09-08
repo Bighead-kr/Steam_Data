@@ -89,7 +89,18 @@ def collect_games(
 
         results: dict[int, dict] = {}
         for app_id in new_app_ids:
-            appdetails = _fetch_steam_appdetails(client, app_id)
+            try:
+                appdetails = _fetch_steam_appdetails(client, app_id)
+            except httpx.HTTPStatusError:
+                # Steam Store occasionally 500s for a single app id for no
+                # documented reason (observed live: a multi-hour run lost
+                # its entire, otherwise-successful progress to one bad app
+                # id). Skip just this one - it's simply not in `results`,
+                # so it isn't added to known_app_ids and gets retried on
+                # the next run - rather than raising and losing every
+                # other app already enriched in this batch.
+                sleep(appdetails_sleep_seconds)
+                continue
             results[app_id] = {"appdetails": appdetails, "steamspy": candidates[app_id]}
             sleep(appdetails_sleep_seconds)
 
