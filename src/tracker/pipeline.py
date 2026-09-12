@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import Collection
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -93,10 +93,20 @@ def run_scorer(
             "owners_high": g.owners_high,
             "cohort_genre": g.cohort_genre,
             "cohort_year": g.cohort_year,
+            "is_dlc": g.is_dlc,
         }
         for g in games
     ]
     scores = score_games(game_dicts, prior_strength=prior_strength, min_cohort_size=min_cohort_size)
+
+    # score_games() can *stop* considering a game scoreable (it's DLC, or
+    # its cohort shrank below the minimum) - an upsert alone would leave the
+    # previous run's score behind and the API would keep serving it.
+    scored_app_ids = {s["app_id"] for s in scores}
+    stale = [g["app_id"] for g in game_dicts if g["app_id"] not in scored_app_ids]
+    for i in range(0, len(stale), batch_size):
+        session.execute(delete(GameScore).where(GameScore.app_id.in_(stale[i : i + batch_size])))
+
     if not scores:
         return 0
 
