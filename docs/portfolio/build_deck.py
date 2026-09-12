@@ -37,6 +37,7 @@ TODO_TABLEAU = "⟨Tableau Public 링크⟩"
 TODO_CLICKDAY_DATE = "⟨ClickDay 개발기간⟩"
 TODO_CLICKDAY_LINK = "⟨App Store / Google Play 링크⟩"
 TODO_SQLD_DATE = "⟨취득연월⟩"
+TODO_COUNCIL_TERM = "⟨재임기간⟩"
 
 # Filled from profile.local.json by build().
 P: dict = {}
@@ -106,6 +107,19 @@ def reorder_slides(prs, order: list[int]) -> None:
 
 def by_name(slide) -> dict:
     return {sh.name: sh for sh in slide.shapes}
+
+
+def clone_row(slide, label_shape, value_shape, dy_inches: float, label: str, value: str) -> None:
+    """Add one more row to a label/value list by copying an existing row and
+    dropping it `dy_inches` lower. The template's rows are individual text
+    boxes, so a list only has as many rows as the designer drew."""
+    dy = int(dy_inches * 914400)
+    for source, text in ((label_shape, label), (value_shape, value)):
+        element = copy.deepcopy(source._element)
+        slide.shapes._spTree.append(element)
+        clone = slide.shapes[-1]
+        clone.top = source.top + dy
+        set_lines(clone, [text])
 
 
 def stamp_header(slide) -> dict:
@@ -187,16 +201,31 @@ def profile(slide) -> None:
     set_lines(shapes["TextBox 35"], ["GitHub"])
     set_lines(shapes["TextBox 36"], [P["github"]])
 
+    # The one line of evidence that this candidate has worked with other
+    # people - there is no internship to point at. It stays a single row
+    # here; the story itself belongs in the cover letter.
+    set_lines(shapes["TextBox 20"], ["Certification · Activity"])
     set_lines(shapes["TextBox 21"], ["Subject"])
     set_lines(shapes["TextBox 22"], [f"{TODO_SQLD_DATE}  SQLD (SQL 개발자)"])
+    clone_row(
+        slide,
+        shapes["TextBox 21"],
+        shapes["TextBox 22"],
+        dy_inches=0.52,
+        label="Activity",
+        value=f"{TODO_COUNCIL_TERM}  한서대학교 항공컴퓨터학과 학회장",
+    )
 
-    # 'Career' has nothing to hold for a new graduate - the same timeline
-    # shape carries the projects instead.
-    set_lines(shapes["TextBox 15"], ["Project"])
-    set_lines(shapes["TextBox 16"], ["2026.08 - 2026.09     GA4 유입채널 성과 분석"])
-    set_lines(shapes["TextBox 17"], ["2026.09 - 현재            Steam 저평가 게임 발굴 파이프라인 & 웹앱"])
-    set_lines(shapes["TextBox 18"], [f"{TODO_CLICKDAY_DATE}        ClickDay 사진 기록 앱 (iOS · Android 출시)"])
-    set_lines(shapes["TextBox 19"], ["Period"])
+    # 'Career' has nothing to hold for a new graduate, so the same timeline
+    # carries the projects. TextBox 16 is the narrow left-hand label (1.26in
+    # wide); the three wide boxes beside it are 17/18/19 - putting a full
+    # line in 16 overflowed it and left the word 'Period' sitting where the
+    # third project should have been.
+    set_lines(shapes["TextBox 15"], ["Experience"])
+    set_lines(shapes["TextBox 16"], ["Period"])
+    set_lines(shapes["TextBox 17"], ["2026.08 - 2026.09     GA4 유입채널 성과 분석"])
+    set_lines(shapes["TextBox 18"], ["2026.09 - 현재            Steam 저평가 게임 발굴 파이프라인 & 웹앱"])
+    set_lines(shapes["TextBox 19"], [f"{TODO_CLICKDAY_DATE}      ClickDay 사진 기록 앱 (iOS · Android 출시)"])
 
 
 def introduction(slide) -> None:
