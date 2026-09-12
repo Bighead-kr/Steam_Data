@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Collection
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -27,8 +28,22 @@ def upsert_raw_games(session: Session, records: dict[int, dict]) -> None:
     session.execute(stmt)
 
 
-def run_normalizer(session: Session, *, batch_size: int = 1000) -> tuple[int, int]:
-    raw_rows = session.execute(select(GameRaw)).scalars().all()
+def run_normalizer(
+    session: Session, *, app_ids: Collection[int] | None = None, batch_size: int = 1000
+) -> tuple[int, int]:
+    """Normalize `games_raw` rows into `games`.
+
+    `app_ids=None` (the default) scans the whole table - needed for a full
+    backfill, but each `games_raw.raw_json` blob is several KB (movie/
+    screenshot URLs, descriptions), so re-scanning the whole table on every
+    call gets expensive as it grows. `run_pipeline.py`'s per-batch loop
+    passes just that batch's app_ids to avoid re-transferring rows that
+    haven't changed since the last call.
+    """
+    query = select(GameRaw)
+    if app_ids is not None:
+        query = query.where(GameRaw.app_id.in_(app_ids))
+    raw_rows = session.execute(query).scalars().all()
     processed = 0
     skipped = 0
     upsert_rows = []

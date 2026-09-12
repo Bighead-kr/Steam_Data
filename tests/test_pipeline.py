@@ -160,6 +160,40 @@ def test_run_normalizer_skips_malformed_row_without_aborting_batch(db_session_fa
         assert session.get(Game, bad_app_id) is None
 
 
+def test_run_normalizer_app_ids_scopes_to_only_those_rows(db_session_factory):
+    """run_pipeline.py passes app_ids=records.keys() per collection batch so
+    the normalizer doesn't re-scan/re-transfer the whole (large, raw_json-
+    heavy) games_raw table on every batch - only the given app_ids' raw rows
+    should be read and normalized, others left untouched.
+
+    Uses fixtures no earlier test in this module has normalized yet
+    (db_session_factory is module-scoped and shared), so the "left
+    untouched" assertion isn't polluted by another test's Game row.
+    """
+    dlc_id, dlc_raw = RAW_DLC
+    genre_id, genre_raw = RAW_GENRE_STRING_ONLY
+    assert session_has_no_game(db_session_factory, dlc_id, genre_id)
+
+    with db_session_factory() as session:
+        upsert_raw_games(session, {dlc_id: dlc_raw, genre_id: genre_raw})
+        session.commit()
+
+        processed, skipped = run_normalizer(session, app_ids=[dlc_id])
+        session.commit()
+
+        assert processed == 1
+        assert skipped == 0
+        assert session.get(Game, dlc_id) is not None
+        # genre_id's raw row exists but was outside app_ids - must not be
+        # normalized as a side effect of this call.
+        assert session.get(Game, genre_id) is None
+
+
+def session_has_no_game(db_session_factory, *app_ids: int) -> bool:
+    with db_session_factory() as session:
+        return all(session.get(Game, app_id) is None for app_id in app_ids)
+
+
 def test_run_normalizer_and_run_scorer_chunk_across_batches(db_session_factory):
     """Upserts must be chunked into multiple statements rather than one
     giant VALUES(...) list (Postgres' ~65535 bind-param ceiling). Verified
