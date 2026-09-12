@@ -204,6 +204,64 @@ RAW_MALFORMED_RECORD = (
     },
 )
 
+RAW_CONTENT_DESCRIPTOR_FIRST = (
+    100011,
+    {
+        # Steam puts age/content-rating descriptors in the same `genres`
+        # array as real genres, and doesn't guarantee real genres come
+        # first - cohort_genre must skip these, not adopt them as the
+        # grouping key.
+        "appdetails": {
+            "name": "Welcome to the Game",
+            "type": "game",
+            "is_free": False,
+            "price_overview": {"currency": "USD", "final": 999},
+            "genres": [
+                {"id": "1", "description": "Sexual Content"},
+                {"id": "1", "description": "Nudity"},
+                {"id": "1", "description": "Violent"},
+                {"id": "1", "description": "Gore"},
+                {"id": "23", "description": "Indie"},
+                {"id": "28", "description": "Simulation"},
+            ],
+            "release_date": {"coming_soon": False, "date": "Oct 3, 2016"},
+        },
+        "steamspy": {
+            "genre": "Indie, Simulation",
+            "tags": {"Horror": 100},
+            "positive": 500,
+            "negative": 100,
+            "owners": "50,000 .. 100,000",
+            "average_forever": 200,
+        },
+    },
+)
+
+RAW_CONTENT_DESCRIPTORS_ONLY = (
+    100012,
+    {
+        # A game tagged with only content descriptors and no real genre at
+        # all (appdetails genres all descriptors, steamspy genre empty)
+        # must fall back to "unknown", not "gore".
+        "appdetails": {
+            "name": "All Descriptors No Genre",
+            "type": "game",
+            "is_free": False,
+            "price_overview": {"currency": "USD", "final": 499},
+            "genres": [{"id": "1", "description": "Gore"}, {"id": "1", "description": "Violent"}],
+            "release_date": {"coming_soon": False, "date": "May 1, 2013"},
+        },
+        "steamspy": {
+            "genre": "",
+            "tags": {},
+            "positive": 20,
+            "negative": 5,
+            "owners": "20,000 .. 50,000",
+            "average_forever": 0,
+        },
+    },
+)
+
 RAW_GENRE_STRING_ONLY = (
     100006,
     {
