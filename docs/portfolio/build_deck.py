@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 from pptx import Presentation
+from pptx.util import Inches
 
 BASE = Path(__file__).resolve().parent
 # The 6MB template is not committed, so a worktree checkout of this script
@@ -218,12 +219,15 @@ def build() -> None:
     # ---- starts from the pristine template rather than the previous edit
     ga4_cover, steam_cover, clickday_cover = (duplicate_slide(prs, 5) for _ in range(3))
     ga4_result_1, ga4_result_2, steam_result = (duplicate_slide(prs, 6) for _ in range(3))
+    # The AI slide is redrawn from the result slide's parts - see ai_usage().
+    ai_usage_slide = duplicate_slide(prs, 6)
 
     cover(prs.slides[0])
     index(prs.slides[1])
     profile(prs.slides[2])
     introduction(prs.slides[3])
     abilities(prs.slides[4])
+    ai_usage(ai_usage_slide)
 
     project_ga4(ga4_cover)
     project_steam(steam_cover)
@@ -246,8 +250,10 @@ def build() -> None:
 
     # template order: 0 cover, 1 index, 2 profile, 3 intro, 4 abilities,
     # 5 project-cover(original), 6 result(original), 7 closing, 8 contact,
-    # then the six clones at 9..14
-    reorder_slides(prs, [0, 1, 2, 3, 4, 9, 12, 13, 10, 14, 11, 7, 8])
+    # then the six project clones at 9..14 and the AI slide at 15.
+    # The AI slide sits after Abilities: tools, then how the work using them
+    # was actually checked, then the projects that came out of it.
+    reorder_slides(prs, [0, 1, 2, 3, 4, 15, 9, 12, 13, 10, 14, 11, 7, 8])
 
     prs.save(OUTPUT)
     print(f"wrote {OUTPUT}  ({len(prs.slides)} slides)")
@@ -396,6 +402,132 @@ def abilities(slide) -> None:
         ("TextBox 29", "시각화"),
     ):
         set_lines(shapes[circle], [label, ""])
+
+
+# The AI slide's own grid, in inches on the 20.00 x 11.25 canvas. The
+# template's margins are 0.93 on the left and 19.07 on the right, and its
+# body copy starts at 7.22 - the right-hand column lines up with the intro
+# paragraph above it, which is how every other slide in this deck is built.
+AI_NUM_LEFT = 0.93
+AI_LEFT_COL = 2.00
+AI_LEFT_WIDTH = 5.10
+AI_RIGHT_COL = 7.60
+AI_RIGHT_WIDTH = 11.45
+AI_RULES = (5.45, 7.20, 8.95, 10.70)
+
+# (number, what the AI produced, why it was wrong, what checking found, detail, tag)
+AI_ROWS = (
+    (
+        "01",
+        "덱 초안의 '결함 7건'",
+        "출처를 댈 수 없는 수치 · 포트폴리오 덱",
+        "근거를 역추적해 출처가 없음을 확인하고, 실측한 3건으로 정정",
+        [
+            "생성된 문장에 숫자가 있으면 원본 데이터까지 되짚는 것을 규칙으로 삼았습니다.",
+            "#사실검증",
+        ],
+    ),
+    (
+        "02",
+        "정상 응답만 가정한 수집 코드",
+        "문서대로 답한다는 전제 · Steam 파이프라인",
+        "실행 로그에서 200 OK + 평문 응답을 발견 — 요청의 약 6%에서 태그 유실",
+        [
+            "SteamSpy는 과부하를 오류 코드가 아니라 200으로 답합니다. 테스트가 아니라",
+            "실제 실행 로그를 봐야 보이는 결함이었습니다.",
+            "#실행검증",
+        ],
+    ),
+    # The wrong hypotheses themselves are not written down anywhere, so this
+    # row says only what the Notion page records: the first diagnosis did not
+    # hold, and the cause that did is named. Inventing the misdiagnosis would
+    # put a made-up sentence on the slide that argues against made-up
+    # sentences.
+    (
+        "03",
+        "콜드스타트 멈춤의 첫 진단",
+        "실제 원인이 아니었음 · ClickDay",
+        "제안대로 고쳐도 증상이 남아, 원인을 AuthProvider의 네트워크 대기로 다시 좁힘",
+        [
+            "세션 복구 후 프로필을 받아올 때까지 화면 전환이 멈춰 있었습니다. 캐시가 있으면",
+            "즉시 전환하고 최신 프로필은 백그라운드에서 갱신하도록 바꿔 해결했습니다.",
+            "#원인규명",
+        ],
+    ),
+)
+
+
+def place(slide, donor, *, left, top, width, height, lines=None):
+    """Drop a copy of `donor` at a measured position on this slide.
+
+    Everything the design owns - typeface, weight, size, colour, tracking -
+    rides along in the copied run properties, so a new layout is a matter of
+    choosing which donor to borrow and where to put it. Nothing here sets a
+    font, and that is deliberate: hand-picked sizes are what make a slide
+    look bolted on.
+    """
+    element = copy.deepcopy(donor._element)
+    slide.shapes._spTree.append(element)
+    shape = slide.shapes[-1]
+    shape.left, shape.top = Inches(left), Inches(top)
+    shape.width, shape.height = Inches(width), Inches(height)
+    if lines is not None:
+        set_lines(shape, lines)
+    return shape
+
+
+def ai_usage(slide) -> None:
+    """Build the AI slide out of the result slide's parts.
+
+    Cloning the Introduction page and swapping its text produced a carbon
+    copy - same photographs, same three cards, same 'Intro-duction.' heading
+    - which is worse than no slide, because a reader notices the repetition
+    before the content. This clones the result page instead (no photographs,
+    just hairlines and lime numerals), strips its body, and redraws the area
+    as a two-column ledger: what the AI produced on the left, what checking
+    it caught on the right. Nothing else in the deck is laid out that way,
+    and the layout is the argument - the page is about a contrast.
+    """
+    donors = by_name(slide)
+    title, intro = donors["TextBox 30"], donors["TextBox 29"]
+    label, rule = donors["TextBox 21"], donors["Picture 7"]
+    accent, strong, light = donors["TextBox 18"], donors["TextBox 14"], donors["TextBox 15"]
+
+    # Strip the body. The header strip is matched by its text rather than by
+    # shape name, the same way stamp_header() finds it.
+    for shape in list(slide.shapes):
+        text = shape.text_frame.text.strip() if shape.has_text_frame else ""
+        if text not in ("2099", "Portfolio", "@mirikim"):
+            shape._element.getparent().remove(shape._element)
+
+    place(slide, title, left=0.93, top=1.67, width=6.85, height=3.28,
+          lines=["AI-", "assisted."])
+    place(slide, intro, left=7.22, top=2.32, width=11.92, height=0.75, lines=[
+        "포트폴리오의 프로젝트 대부분을 Claude Code와 함께 만들었습니다. 생성은 빠르지만, 검증은 사람이 합니다.",
+        "아래 세 건은 산출물을 그대로 받았다면 그대로 남았을 오류입니다. 전부 제가 잡아 고쳤습니다.",
+    ])
+
+    place(slide, label, left=AI_LEFT_COL, top=5.02, width=3.00, height=0.40,
+          lines=["AI Output"])
+    place(slide, label, left=AI_RIGHT_COL, top=5.02, width=4.00, height=0.40,
+          lines=["Human Check"])
+
+    for y in AI_RULES:
+        place(slide, rule, left=0.93, top=y, width=18.14, height=0.06)
+
+    for (number, produced, why, caught, detail), y in zip(AI_ROWS, AI_RULES):
+        place(slide, accent, left=AI_NUM_LEFT, top=y + 0.10, width=1.10, height=0.83,
+              lines=[number])
+        place(slide, strong, left=AI_LEFT_COL, top=y + 0.22,
+              width=AI_LEFT_WIDTH, height=0.42, lines=[produced])
+        place(slide, light, left=AI_LEFT_COL, top=y + 0.70,
+              width=AI_LEFT_WIDTH, height=0.38, lines=[why])
+        place(slide, strong, left=AI_RIGHT_COL, top=y + 0.22,
+              width=AI_RIGHT_WIDTH, height=0.42, lines=[caught])
+        place(slide, light, left=AI_RIGHT_COL, top=y + 0.70,
+              width=AI_RIGHT_WIDTH, height=0.85, lines=detail)
+
+    stamp_header(slide)
 
 
 # --------------------------------------------------------------------------
@@ -638,4 +770,16 @@ def contact(slide) -> None:
 if __name__ == "__main__":
     if not TEMPLATE.exists():
         sys.exit(f"template not found: {TEMPLATE}")
+    # This script rebuilds all fourteen slides from the template, so running
+    # it over a deck that was finished by hand in PowerPoint throws that work
+    # away - which is exactly what happened once. Overwriting is now something
+    # you have to ask for. To add a slide to a deck you have already edited,
+    # use add_ai_slide.py, which writes a new file instead.
+    if OUTPUT.exists() and "--force" not in sys.argv:
+        sys.exit(
+            f"{OUTPUT.name} already exists.\n"
+            "Rebuilding replaces every slide and discards any edit made by hand.\n"
+            "  --force        rebuild anyway\n"
+            "  add_ai_slide.py  add one slide to the existing deck instead"
+        )
     build()
