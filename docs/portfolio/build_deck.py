@@ -151,7 +151,10 @@ def stamp_header(slide) -> dict:
         if text == "2099":
             set_lines(sh, ["2026"])
         elif text == "@mirikim":
-            set_lines(sh, [P["github"]])
+            # 1.92in box at 14pt: the full github.com/... URL measures about
+            # 2.04in and wraps onto a second line across every slide. The
+            # template's own '@mirikim' is the size this slot was drawn for.
+            set_lines(sh, [P["github_handle"]])
     return shapes
 
 
@@ -223,7 +226,7 @@ def profile(slide) -> None:
     # The one line of evidence that this candidate has worked with other
     # people - there is no internship to point at. It stays a single row
     # here; the story itself belongs in the cover letter.
-    set_lines(shapes["TextBox 20"], ["Certification · Activity"])
+    set_lines(shapes["TextBox 20"], ["Certification"])
     set_lines(shapes["TextBox 21"], ["Subject"])
     set_lines(shapes["TextBox 22"], [f"{TODO_SQLD_DATE}  SQLD (SQL 개발자)"])
     clone_row(
@@ -304,7 +307,7 @@ def abilities(slide) -> None:
 
     for name, label in (
         ("TextBox 40", "SQL"),
-        ("TextBox 46", "데이터 분석"),
+        ("TextBox 46", "분석"),
         ("TextBox 43", "시각화"),
         ("TextBox 49", "파이프라인"),
         ("TextBox 52", "웹 개발"),
@@ -446,29 +449,32 @@ def result_ga4_finding(slide) -> None:
         keyword="#핵심결론",
         title="GA4 유입채널 성과 분석",
         date="2026.08 - 2026.09",
-        role="1인 분석 (정의 · SQL · 시각화 · 실험설계)",
+        role="1인 분석 (SQL · 시각화 · 실험설계)",
         result="채널이 아니라 결제 플로우가 병목",
         # The headline figure has to carry the conclusion. '7배' shouted
         # "huge difference" directly above a headline saying the differences
         # didn't matter - the number was arguing against its own slide.
+        # Headline 24pt / subhead 19pt / detail 17pt, all in a ~5.9in column:
+        # roughly 16, 20 and 22 Korean characters per line respectively.
         top=(
             "0.1",
             "%p",
-            "채널을 바꿔도 전환율은 0.1%p 안에서 움직였다",
-            "볼륨은 최대 7배 차이인데도 (Organic 37.7% vs Paid 5.3%)",
+            "전환율 차이는 0.1%p뿐이었다",
+            "볼륨은 최대 7배 차이인데도",
             [
-                "전환율 1.52~1.63% · 도달률 21.8~22.8% · 객단가 $46~49 · 재방문 5.04~5.26%",
-                "4개 독립 분석 모두에서 채널 간 유저 질 차이가 나타나지 않았습니다.",
+                "Organic 37.7% vs Paid 5.3% — 볼륨은 최대 7배",
+                "전환율 1.52~1.63% · 도달률 21.8~22.8% · 객단가 $46~49",
+                "4개 독립 분석 모두 채널 간 차이가 없었습니다.",
             ],
         ),
         bottom=(
             "40.8",
             "%",
             "진짜 병목은 결제정보 입력 구간",
-            "전 채널 공통으로 결제 시작 → 결제정보 입력에서 이탈",
+            "전 채널 공통으로 결제 시작 → 정보 입력에서 이탈",
             [
-                "9,715명 중 3,964명 이탈 — 특정 채널이 아닌 모든 채널에서 동일",
-                "이를 근거로 A/B 설계: 45.5%→49.5%(MDE +4%p), 4,900명, 7~10주",
+                "9,715명 중 3,964명 — 특정 채널이 아닌 전 채널 공통",
+                "A/B 설계: 45.5%→49.5%(MDE +4%p), 4,900명, 7~10주",
             ],
         ),
     )
@@ -480,7 +486,7 @@ def result_ga4_quality(slide) -> None:
         keyword="#데이터품질",
         title="GA4 유입채널 성과 분석",
         date="2026.08 - 2026.09",
-        role="1인 분석 (정의 · SQL · 시각화 · 실험설계)",
+        role="1인 분석 (SQL · 시각화 · 실험설계)",
         result="지표를 해석하기 전에 측정을 검증",
         top=(
             "15.9",
@@ -497,8 +503,8 @@ def result_ga4_quality(slide) -> None:
             "유입채널 식별 불가",
             "그중 5.5%는 크로스도메인 추적 끊김으로 경로가 유실",
             [
-                "지표가 튀는 그룹을 '효과'로 해석하지 않고 추적 시스템 결함을 역추적해",
-                "원인을 특정했습니다.",
+                "지표가 튀는 그룹을 '효과'로 해석하지 않고,",
+                "추적 시스템 결함을 역추적해 원인을 특정했습니다.",
             ],
         ),
     )
@@ -508,10 +514,10 @@ def result_steam(slide) -> None:
     _result(
         slide,
         keyword="#실데이터검증",
-        title="Steam 저평가 게임 발굴 파이프라인 & 웹앱",
+        title="Steam 저평가 게임 발굴 웹앱",
         date="2026.09 - 현재",
-        role="1인 개발 (ETL · DB · API · 웹앱 · 배포)",
-        result="배포 후 실데이터 재점검으로 죽어 있던 기능 3건 발견",
+        role="1인 개발 (ETL · DB · API · 배포)",
+        result="재점검으로 죽은 기능 3건 발견",
         # 127 is not the finding, it is the irony's setup - the damage is the
         # figure worth enlarging. Same below: the point is "all of them",
         # which reads as 100%, not as a row count.
@@ -529,10 +535,10 @@ def result_steam(slide) -> None:
             "100",
             "%",
             "태그 누락률",
-            "9,715건 전부 — 태그 필터가 한 건도 매칭될 수 없는 상태였습니다",
+            "9,715건 전부 — 태그 필터가 매칭될 수 없었습니다",
             [
-                "코호트 장르도 한쪽으로 쏠려(action 4,558건 vs simulation 1건) 필터가",
-                "무의미했습니다. 장르 기준을 재정의하고 API 쿼리를 SQL로 내렸습니다.",
+                "코호트 장르도 한쪽으로 쏠렸습니다 (action 4,558건 vs simulation 1건).",
+                "장르 기준을 재정의하고 API 쿼리를 SQL로 내렸습니다.",
             ],
         ),
     )
@@ -555,7 +561,7 @@ def closing(slide) -> None:
     set_lines(shapes["TextBox 6"], ["E.Mail"])
     # The template's own disclaimer about its sample portrait. The portrait
     # itself is still on this slide - replace or delete it in PowerPoint.
-    set_lines(shapes["TextBox 10"], ["* 이 슬라이드의 인물 사진은 템플릿 샘플입니다 — 교체 또는 삭제 필요"])
+    set_lines(shapes["TextBox 10"], ["* 인물 사진은 템플릿 샘플 — 교체 또는 삭제 필요"])
 
 
 def contact(slide) -> None:
