@@ -1,5 +1,7 @@
 from fixtures.steam_samples import (
     RAW_APPDETAILS_NULL,
+    RAW_CONTENT_DESCRIPTOR_FIRST,
+    RAW_CONTENT_DESCRIPTORS_ONLY,
     RAW_DLC,
     RAW_FREE_TO_PLAY,
     RAW_GENRE_STRING_ONLY,
@@ -70,6 +72,22 @@ def test_normalize_handles_null_price_overview():
     result = normalize_game(app_id, raw)
     assert result is not None
     assert result["price_cents"] is None
+
+
+def test_normalize_cohort_genre_skips_content_descriptors():
+    """genres[0] can be a content-rating descriptor (Sexual Content, Nudity,
+    Violent, Gore, ...), not a real genre - cohort_genre must skip past
+    those to the first actual genre."""
+    app_id, raw = RAW_CONTENT_DESCRIPTOR_FIRST
+    result = normalize_game(app_id, raw)
+    assert result["genres"][0] == "Sexual Content"  # raw genre order preserved
+    assert result["cohort_genre"] == "indie"
+
+
+def test_normalize_cohort_genre_falls_back_to_unknown_when_only_descriptors():
+    app_id, raw = RAW_CONTENT_DESCRIPTORS_ONLY
+    result = normalize_game(app_id, raw)
+    assert result["cohort_genre"] == "unknown"
 
 
 def test_normalize_handles_steamspy_tags_as_array():

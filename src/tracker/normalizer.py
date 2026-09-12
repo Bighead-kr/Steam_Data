@@ -5,6 +5,20 @@ import re
 
 _OWNERS_RE = re.compile(r"([\d,]+)\s*\.\.\s*([\d,]+)")
 
+# Steam mixes age/content-rating descriptors into the same `genres` array as
+# actual genres (e.g. a game can be ["Violent", "Gore", "Action", "Indie"]).
+# These aren't genres and must never become `cohort_genre` - a handful of
+# games sharing "Nudity" or "Gore" as their sole grouping key would be scored
+# against a cohort of a few unrelated titles instead of their real genre.
+_CONTENT_DESCRIPTORS = {
+    "violent",
+    "gore",
+    "nudity",
+    "sexual content",
+    "adult only",
+    "mature",
+}
+
 
 def _parse_owners(owners: str | None) -> tuple[int | None, int | None]:
     if not owners:
@@ -81,6 +95,7 @@ def normalize_game(app_id: int, raw: dict) -> dict | None:
 
     owners_low, owners_high = _parse_owners(steamspy.get("owners"))
     genres = _genres(appdetails, steamspy)
+    cohort_genres = [g for g in genres if g.lower() not in _CONTENT_DESCRIPTORS]
 
     return {
         "app_id": app_id,
@@ -95,6 +110,6 @@ def normalize_game(app_id: int, raw: dict) -> dict | None:
         "owners_low": owners_low,
         "owners_high": owners_high,
         "avg_playtime_min": steamspy.get("average_forever"),
-        "cohort_genre": genres[0].lower() if genres else "unknown",
+        "cohort_genre": cohort_genres[0].lower() if cohort_genres else "unknown",
         "cohort_year": release_date.year,
     }
