@@ -1,0 +1,11 @@
+{
+  "name": "홍길동",
+  "phone": "010.0000.0000",
+  "phone_spaced": "010 . 0000 . 0000",
+  "email": "you@example.com",
+  "github": "github.com/your-handle",
+  "github_handle": "@your-handle",
+  "education": "20XX.02 ○○대학교 ○○학과 졸업예정",
+  "signature": "gildong",
+  "adjective": "Rigorous"
+}

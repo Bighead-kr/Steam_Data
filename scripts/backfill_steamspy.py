@@ -36,7 +36,11 @@ from tracker.db import get_sessionmaker
 from tracker.models import GameRaw
 from tracker.pipeline import run_normalizer, run_scorer
 
-COMMIT_EVERY = 200
+# Deliberately small. This run gets killed by the machine's memory watchdog
+# every so often - not for anything this script does (it holds ~80MB) but
+# because the laptop as a whole is under pressure - and whatever hasn't been
+# committed at that moment is re-fetched at one request per second.
+COMMIT_EVERY = 50
 
 
 def _mark_dirty(row: GameRaw) -> None:

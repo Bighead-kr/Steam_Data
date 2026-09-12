@@ -1,4 +1,5 @@
 import httpx
+import pytest
 
 from tracker.collector import (
     _fetch_steam_appdetails,
@@ -74,6 +75,42 @@ def test_fetch_steamspy_appdetails_returns_the_record_with_tags():
         "name": "Dungeon of Echoes",
         "tags": {"Roguelike": 900, "Indie": 500},
     }
+
+
+def test_fetch_steamspy_appdetails_retries_a_transient_overload():
+    """SteamSpy reports overload as HTTP 200 carrying the plain text
+    'Connection failed: Too many connections' - observed live on roughly 6%
+    of requests during a busy stretch. Retrying gets the record; treating
+    the blip as 'no tags' would make it permanent."""
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.params["appid"])
+        if len(calls) < 3:
+            return httpx.Response(200, text="Connection failed: Too many connections")
+        return httpx.Response(200, json={"name": "Dungeon of Echoes", "tags": {"Roguelike": 9}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    sleeps: list[float] = []
+
+    result = _fetch_steamspy_appdetails(client, 100001, sleep=sleeps.append)
+
+    assert result == {"name": "Dungeon of Echoes", "tags": {"Roguelike": 9}}
+    assert len(calls) == 3
+    assert sleeps == [3.0, 6.0]
+
+
+def test_fetch_steamspy_appdetails_raises_when_the_overload_persists():
+    """Giving up must raise, not return None: None means 'SteamSpy has no
+    such app' and would have the caller record an empty tag set forever."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="Connection failed: Too many connections")
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(ValueError):
+        _fetch_steamspy_appdetails(client, 100001, sleep=lambda _: None)
 
 
 def test_fetch_steamspy_appdetails_returns_none_for_an_unknown_app():
