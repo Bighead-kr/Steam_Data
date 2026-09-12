@@ -144,6 +144,53 @@ def clone_row(slide, label_shape, value_shape, dy_inches: float, label: str, val
         set_lines(clone, [text])
 
 
+def relax_tracking(slide, max_pt: float = 24.0) -> None:
+    """Undo the template's negative letter-spacing on body text.
+
+    The 미리캔버스 export tightens nearly every run - spc="-200" (-2pt) on
+    111 of them, "-100" on another 103 - which at 17pt Korean body copy is
+    over 12% tighter than the font intends and reads as cramped. Display
+    type keeps its tracking: the huge Poppins headings are drawn to sit
+    tight, and loosening those would break the look.
+    """
+    for shape in slide.shapes:
+        if not shape.has_text_frame:
+            continue
+        for para in shape.text_frame.paragraphs:
+            for run in para.runs:
+                size_pt = run.font.size.pt if run.font.size else 14
+                if size_pt > max_pt:
+                    continue
+                rPr = run._r.get_or_add_rPr()
+                if int(rPr.get("spc", "0")) < 0:
+                    rPr.set("spc", "0")
+
+
+def set_qr(slide, shape_name: str, url: str) -> None:
+    """Replace the template's placeholder QR with one that resolves.
+
+    The shipped image is 67x66 px for a 0.69in box - too coarse to scan at
+    any size, and it points wherever the template designer pointed it.
+    """
+    import io
+
+    import qrcode
+
+    target = next((sh for sh in slide.shapes if sh.name == shape_name), None)
+    if target is None:
+        return
+    left, top, width, height = target.left, target.top, target.width, target.height
+    target._element.getparent().remove(target._element)
+
+    qr = qrcode.QRCode(box_size=12, border=2)
+    qr.add_data(url if url.startswith("http") else f"https://{url}")
+    qr.make(fit=True)
+    buffer = io.BytesIO()
+    qr.make_image(fill_color="black", back_color="white").save(buffer, format="PNG")
+    buffer.seek(0)
+    slide.shapes.add_picture(buffer, left, top, width, height)
+
+
 def stamp_header(slide) -> dict:
     """Every slide carries the template's '2099 / Portfolio / @mirikim' strip."""
     shapes = by_name(slide)
@@ -187,6 +234,15 @@ def build() -> None:
 
     closing(prs.slides[7])
     contact(prs.slides[8])
+
+    # Each project cover carries a QR next to its Link row; point it at the
+    # thing a reader would most want to open on their phone.
+    set_qr(ga4_cover, "Picture 9", TABLEAU)
+    set_qr(steam_cover, "Picture 9", STEAM_SITE)
+    set_qr(clickday_cover, "Picture 9", APP_STORE)
+
+    for slide in prs.slides:
+        relax_tracking(slide)
 
     # template order: 0 cover, 1 index, 2 profile, 3 intro, 4 abilities,
     # 5 project-cover(original), 6 result(original), 7 closing, 8 contact,
