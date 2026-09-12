@@ -33,11 +33,14 @@ PROFILE_PATH = BASE / "profile.local.json"
 
 STEAM_SITE = "steam-hidden-gems-web-three.vercel.app"
 
-TODO_TABLEAU = "⟨Tableau Public 링크⟩"
-TODO_CLICKDAY_DATE = "⟨ClickDay 개발기간⟩"
-TODO_CLICKDAY_LINK = "⟨App Store / Google Play 링크⟩"
-TODO_SQLD_DATE = "⟨취득연월⟩"
-TODO_COUNCIL_TERM = "⟨재임기간⟩"
+TABLEAU = "public.tableau.com/app/profile/.18082116/viz/GA4_17884980209280/1_1"
+APP_STORE = "apps.apple.com/kr/app/id6790361582"
+GOOGLE_PLAY = "play.google.com/store/apps/details?id=com.depaier.clickday"
+
+COUNCIL_TERM = "2025.03 - 2026.02"
+CLICKDAY_TERM = "2026.03 - 2026.08"
+GA4_TERM = "2026.08 - 2026.09"
+STEAM_TERM = "2026.09 - 현재"
 
 # Filled from profile.local.json by build().
 P: dict = {}
@@ -223,20 +226,15 @@ def profile(slide) -> None:
     set_lines(shapes["TextBox 35"], ["GitHub"])
     set_lines(shapes["TextBox 36"], [P["github"]])
 
-    # The one line of evidence that this candidate has worked with other
-    # people - there is no internship to point at. It stays a single row
-    # here; the story itself belongs in the cover letter.
-    set_lines(shapes["TextBox 20"], ["Certification"])
-    set_lines(shapes["TextBox 21"], ["Subject"])
-    set_lines(shapes["TextBox 22"], [f"{TODO_SQLD_DATE}  SQLD (SQL 개발자)"])
-    clone_row(
-        slide,
-        shapes["TextBox 21"],
-        shapes["TextBox 22"],
-        dy_inches=0.52,
-        label="Activity",
-        value=f"{TODO_COUNCIL_TERM}  한서대학교 항공컴퓨터학과 학회장",
-    )
+    # No certification to list - the SQLD attempt did not pass - so the
+    # section carries the student-council year instead of an empty
+    # 'Certification' header. It is the one line of evidence that this
+    # candidate has worked alongside other people; there is no internship to
+    # point at. It stays a single row here, the story belongs in the cover
+    # letter. SQL competence is argued by the query work in the projects.
+    set_lines(shapes["TextBox 20"], ["Activity"])
+    set_lines(shapes["TextBox 21"], ["Period"])
+    set_lines(shapes["TextBox 22"], [f"{COUNCIL_TERM}   한서대학교 항공컴퓨터학과 학회장"])
 
     # 'Career' has nothing to hold for a new graduate, so the same timeline
     # carries the projects. TextBox 16 is the narrow left-hand label (1.26in
@@ -245,9 +243,11 @@ def profile(slide) -> None:
     # third project should have been.
     set_lines(shapes["TextBox 15"], ["Experience"])
     set_lines(shapes["TextBox 16"], ["Period"])
-    set_lines(shapes["TextBox 17"], ["2026.08 - 2026.09     GA4 유입채널 성과 분석"])
-    set_lines(shapes["TextBox 18"], ["2026.09 - 현재            Steam 저평가 게임 발굴 파이프라인 & 웹앱"])
-    set_lines(shapes["TextBox 19"], [f"{TODO_CLICKDAY_DATE}      ClickDay 사진 기록 앱 (iOS · Android 출시)"])
+    # Oldest first, so the reader walks the same path the candidate did:
+    # ship an app, discover nobody arrives, go study acquisition.
+    set_lines(shapes["TextBox 17"], [f"{CLICKDAY_TERM}   ClickDay 사진 스팟 공유 앱 (iOS · Android 출시)"])
+    set_lines(shapes["TextBox 18"], [f"{GA4_TERM}   GA4 유입채널 성과 분석"])
+    set_lines(shapes["TextBox 19"], [f"{STEAM_TERM}        Steam 저평가 게임 발굴 웹앱"])
 
 
 def introduction(slide) -> None:
@@ -353,7 +353,9 @@ def _project_cover(slide, *, keyword, title, date, source, skills, summary, link
     set_lines(shapes["TextBox 13"], [source])
     set_lines(shapes["TextBox 14"], [skills])
     set_lines(shapes["TextBox 15"], summary)
-    set_lines(shapes["TextBox 20"], [link])
+    # A list, because two store URLs do not fit one 9.97in line at 17pt and
+    # there is about an inch of clear space below this row.
+    set_lines(shapes["TextBox 20"], link if isinstance(link, list) else [link])
 
 
 def project_ga4(slide) -> None:
@@ -362,7 +364,7 @@ def project_ga4(slide) -> None:
         keyword="#가설검증",
         blurb=["채널을 바꿀 것인가,", "결제 화면을 고칠 것인가."],
         title="GA4 유입채널 성과 분석",
-        date="2026.08 - 2026.09",
+        date=GA4_TERM,
         source="Google Merchandise Store · BigQuery 공개 GA4 이벤트 로그 (2020.11-2021.01)",
         skills="BigQuery(SQL), Tableau Public",
         summary=[
@@ -370,7 +372,7 @@ def project_ga4(slide) -> None:
             "채널별 유저 질을 4개 독립 분석으로 교차 검증하고, 채널이 아닌 결제 플로우가",
             "진짜 병목임을 밝혀 개선 실험을 설계했습니다.",
         ],
-        link=f"{TODO_TABLEAU} · " + P["github"],
+        link=[TABLEAU, P["github"]],
     )
 
 
@@ -380,7 +382,7 @@ def project_steam(slide) -> None:
         keyword="#데이터파이프라인",
         blurb=["수집부터 배포까지", "혼자 끝낸 파이프라인."],
         title="Steam 저평가 게임 발굴 파이프라인 & 웹앱",
-        date="2026.09 - 현재",
+        date=STEAM_TERM,
         source="Steam Store appdetails API · SteamSpy (게임 9,748건 수집)",
         skills="Python, PostgreSQL(Supabase), FastAPI, Next.js/TypeScript, GitHub Actions, Render, Vercel",
         summary=[
@@ -397,16 +399,19 @@ def project_clickday(slide) -> None:
         slide,
         keyword="#출시경험",
         blurb=["만드는 것과 알리는 것은", "다른 문제였습니다."],
-        title="ClickDay — 사진 EXIF 기록 앱",
-        date=TODO_CLICKDAY_DATE,
-        source="개인 프로젝트 · App Store / Google Play 출시",
+        # Named from the store listing, not from memory: it is a photo-spot
+        # sharing community (where and with what a shot was taken), not an
+        # EXIF viewer.
+        title="ClickDay — 사진 스팟 공유 앱",
+        date=CLICKDAY_TERM,
+        source="개인 프로젝트 · App Store / Google Play 출시 (2026.07)",
         skills="React Native(Expo), TypeScript",
         summary=[
-            "촬영 정보(EXIF)를 지도 위에 기록하는 모바일 앱을 기획·개발해 iOS·Android",
-            "양대 스토어에 출시했습니다. 홍보를 하지 않아 이용자는 약 30명에 그쳤고,",
-            "이 경험이 '유입 채널'을 공부하게 된 직접적인 계기가 됐습니다.",
+            "사진에 담긴 '어디서, 무엇으로' 찍었는지를 지도 위에 기록하고 공유하는 앱을",
+            "기획·개발해 iOS·Android 양대 스토어에 출시했습니다. 홍보를 하지 않아 이용자는",
+            "약 30명에 그쳤고, 이 경험이 '유입 채널'을 공부하게 된 직접적인 계기가 됐습니다.",
         ],
-        link=TODO_CLICKDAY_LINK,
+        link=[APP_STORE, GOOGLE_PLAY],
     )
 
 
@@ -448,7 +453,7 @@ def result_ga4_finding(slide) -> None:
         slide,
         keyword="#핵심결론",
         title="GA4 유입채널 성과 분석",
-        date="2026.08 - 2026.09",
+        date=GA4_TERM,
         role="1인 분석 (SQL · 시각화 · 실험설계)",
         result="채널이 아니라 결제 플로우가 병목",
         # The headline figure has to carry the conclusion. '7배' shouted
@@ -485,7 +490,7 @@ def result_ga4_quality(slide) -> None:
         slide,
         keyword="#데이터품질",
         title="GA4 유입채널 성과 분석",
-        date="2026.08 - 2026.09",
+        date=GA4_TERM,
         role="1인 분석 (SQL · 시각화 · 실험설계)",
         result="지표를 해석하기 전에 측정을 검증",
         top=(
@@ -515,7 +520,7 @@ def result_steam(slide) -> None:
         slide,
         keyword="#실데이터검증",
         title="Steam 저평가 게임 발굴 웹앱",
-        date="2026.09 - 현재",
+        date=STEAM_TERM,
         role="1인 개발 (ETL · DB · API · 배포)",
         result="재점검으로 죽은 기능 3건 발견",
         # 127 is not the finding, it is the irony's setup - the damage is the
