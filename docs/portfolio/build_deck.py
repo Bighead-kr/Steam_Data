@@ -460,7 +460,7 @@ def result_steam(slide) -> None:
         title="Steam 저평가 게임 발굴 파이프라인 & 웹앱",
         date="2026.09 - 현재",
         role="1인 개발 (ETL · DB · API · 웹앱 · 배포)",
-        result="배포 후 실데이터 재점검으로 결함 7건 수정",
+        result="배포 후 실데이터 재점검으로 죽어 있던 기능 3건 발견",
         top=(
             "127",
             "개",
