@@ -55,6 +55,24 @@ def _genres(appdetails: dict, steamspy: dict) -> list[str]:
     return [g.strip() for g in genre_str.split(",") if g.strip()]
 
 
+def _cohort_genre(source_genre: str | None, genres: list[str]) -> str:
+    """The grouping key a game is scored against.
+
+    `source_genre` - the SteamSpy genre list the collector found this app
+    in - is authoritative when present. The fallback below exists only for
+    rows collected before the collector recorded it, and is deliberately
+    weak: Steam orders `genres` by genre id (Action=1, Strategy=2, RPG=3,
+    Casual=4, Indie=23, Adventure=25, Simulation=28), so `genres[0]` is
+    near-constant Action/Adventure and can never yield "simulation" for a
+    game that is also tagged Action. Measured on a 9,715-row production
+    table it produced 4,558 "action" and exactly 1 "simulation".
+    """
+    if source_genre:
+        return source_genre.lower()
+    cohort_genres = [g for g in genres if g.lower() not in _CONTENT_DESCRIPTORS]
+    return cohort_genres[0].lower() if cohort_genres else "unknown"
+
+
 def _tags(steamspy: dict) -> list[str]:
     tags = steamspy.get("tags") or {}
     # SteamSpy returns "tags": [] (a JSON array, not an object) for games
@@ -95,7 +113,6 @@ def normalize_game(app_id: int, raw: dict) -> dict | None:
 
     owners_low, owners_high = _parse_owners(steamspy.get("owners"))
     genres = _genres(appdetails, steamspy)
-    cohort_genres = [g for g in genres if g.lower() not in _CONTENT_DESCRIPTORS]
 
     return {
         "app_id": app_id,
@@ -110,6 +127,6 @@ def normalize_game(app_id: int, raw: dict) -> dict | None:
         "owners_low": owners_low,
         "owners_high": owners_high,
         "avg_playtime_min": steamspy.get("average_forever"),
-        "cohort_genre": cohort_genres[0].lower() if cohort_genres else "unknown",
+        "cohort_genre": _cohort_genre(raw.get("source_genre"), genres),
         "cohort_year": release_date.year,
     }
