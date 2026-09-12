@@ -31,23 +31,51 @@ def _fetch_steamspy_genre(client: httpx.Client, genre: str) -> dict[int, dict]:
     return {int(app_id): record for app_id, record in response.json().items()}
 
 
-def _fetch_steamspy_appdetails(client: httpx.Client, app_id: int) -> dict | None:
+def _fetch_steamspy_appdetails(
+    client: httpx.Client,
+    app_id: int,
+    *,
+    attempts: int = 3,
+    backoff_seconds: float = 3.0,
+    sleep: Callable[[float], None] = time.sleep,
+) -> dict | None:
     """Fetch SteamSpy's full per-app record, which carries `tags`.
 
     The genre listing this collector starts from has no `tags` key at all
     (verified live: its records stop at `ccu`), so without this second call
     every game normalizes to an empty tag list and the webapp's tag filter
-    can never match anything. Returns None on any failure - tags are a
-    nice-to-have enrichment and must never cost us the whole record.
+    can never match anything.
+
+    Two different failures have to stay distinguishable, because callers
+    treat them differently:
+
+      returns None  SteamSpy has no record for this app id. It answers with
+                    a record full of nulls rather than an error status, so
+                    "no name" is the tell. Nothing to wait for.
+      raises        We never got an answer. SteamSpy reports overload as
+                    HTTP 200 with the plain-text body 'Connection failed:
+                    Too many connections' (observed live, ~6% of requests
+                    during a busy stretch), which json() rejects. That is
+                    transient, so back off and retry before giving up - a
+                    caller that records an empty tag set here would make a
+                    momentary blip permanent.
     """
-    response = client.get(STEAMSPY_URL, params={"request": "appdetails", "appid": str(app_id)})
-    response.raise_for_status()
-    record = response.json()
-    # SteamSpy answers an unknown app id with a record full of nulls rather
-    # than an error status; treat "no name" as "nothing useful here".
-    if not isinstance(record, dict) or not record.get("name"):
-        return None
-    return record
+    for attempt in range(1, attempts + 1):
+        response = client.get(
+            STEAMSPY_URL, params={"request": "appdetails", "appid": str(app_id)}
+        )
+        response.raise_for_status()
+        try:
+            record = response.json()
+        except ValueError:
+            if attempt == attempts:
+                raise
+            sleep(backoff_seconds * attempt)
+            continue
+        if not isinstance(record, dict) or not record.get("name"):
+            return None
+        return record
+    return None
 
 
 def _fetch_steam_appdetails(client: httpx.Client, app_id: int) -> dict | None:
