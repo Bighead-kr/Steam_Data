@@ -123,10 +123,6 @@ export function GemScatterChart({
             fill={ACCENT_GEM}
             fillOpacity={0.12}
           />
-          <text x={PAD_LEFT + 6} y={PAD_TOP + 15} fill={ACCENT_GEM} fontSize={11}>
-            숨은 명작 구간
-          </text>
-
           {TICKS.map((tick) => (
             <g key={`x-${tick}`}>
               <line
@@ -220,6 +216,21 @@ export function GemScatterChart({
               />
             );
           })}
+          {/* After the points, not before: the zone is where the points
+              cluster most densely, so a label drawn underneath them came out
+              as "숨…명작 구간" with dots sitting on the missing characters. */}
+          <text
+            x={PAD_LEFT + 6}
+            y={PAD_TOP + 15}
+            fill={ACCENT_GEM}
+            fontSize={11}
+            stroke="#1b1e27"
+            strokeWidth={3}
+            paintOrder="stroke"
+          >
+            숨은 명작 구간
+          </text>
+
           {hovered &&
             (() => {
               const { x, y } = pointPosition(hovered);

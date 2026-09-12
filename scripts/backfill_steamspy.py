@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, attributes
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -72,20 +72,33 @@ def backfill_source_genre(session: Session, client: httpx.Client) -> int:
     return len(updated)
 
 
-def _needs_tags(row: GameRaw) -> bool:
-    steamspy = row.raw_json.get("steamspy") or {}
-    return "tags" not in steamspy
+def _app_ids_needing_tags(session: Session, limit: int | None) -> list[int]:
+    """Ask the database which rows still need tags, instead of pulling every
+    raw_json blob over the wire to decide in Python.
+
+    games_raw holds ~9.7k rows of several KB each (screenshot and movie URLs,
+    descriptions), so a full SELECT is tens of MB - and this script is meant
+    to be stopped and resumed, which would pay that cost again every time.
+    The same mistake in the normalizer was the main driver of a Supabase
+    egress overage."""
+    stmt = select(GameRaw.app_id).where(
+        ~func.jsonb_exists(GameRaw.raw_json["steamspy"], "tags")
+    ).order_by(GameRaw.app_id)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(session.execute(stmt).scalars().all())
 
 
 def backfill_tags(session: Session, client: httpx.Client, limit: int | None) -> int:
-    rows = [row for row in session.execute(select(GameRaw)).scalars().all() if _needs_tags(row)]
-    if limit is not None:
-        rows = rows[:limit]
-    print(f"[tags] {len(rows)} rows to enrich (1 req/sec)")
+    app_ids = _app_ids_needing_tags(session, limit)
+    print(f"[tags] {len(app_ids)} rows to enrich (1 req/sec)")
 
     done: list[int] = []
     pending: list[int] = []
-    for i, row in enumerate(rows, start=1):
+    for i, app_id in enumerate(app_ids, start=1):
+        row = session.get(GameRaw, app_id)
+        if row is None:
+            continue
         try:
             detailed = _fetch_steamspy_appdetails(client, row.app_id)
         except (httpx.HTTPError, ValueError) as exc:
@@ -111,7 +124,10 @@ def backfill_tags(session: Session, client: httpx.Client, limit: int | None) -> 
             session.commit()
             done.extend(pending)
             pending = []
-            print(f"[tags] {i}/{len(rows)} enriched")
+            print(f"[tags] {i}/{len(app_ids)} enriched")
+            # Committed rows stay in the identity map holding their raw_json
+            # blobs; over a full run that is the whole table in memory again.
+            session.expunge_all()
 
     if pending:
         session.commit()
@@ -123,6 +139,11 @@ def backfill_tags(session: Session, client: httpx.Client, limit: int | None) -> 
 
 
 def main() -> None:
+    # The tags phase runs for hours and its only progress report is these
+    # prints; piped to a file (nohup, a background job) Python block-buffers
+    # stdout and the file stays empty the whole time.
+    sys.stdout.reconfigure(line_buffering=True)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phase", choices=["source-genre", "tags", "all"], default="all")
     parser.add_argument("--limit", type=int, default=None, help="max rows for the tags phase")
