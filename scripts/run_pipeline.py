@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from tracker.collector import collect_games
-from tracker.config import get_settings
+from tracker.config import TARGET_GENRES, get_settings
 from tracker.db import get_sessionmaker
 from tracker.pipeline import (
     get_known_app_ids,
@@ -19,7 +19,7 @@ from tracker.pipeline import (
     upsert_raw_games,
 )
 
-GENRES = ["indie", "roguelike", "simulation", "management"]
+GENRES = TARGET_GENRES
 # Steam Store's undocumented rate limit (~200 req/5min per IP) means a single
 # run can only safely enrich a few thousand new games - candidates per genre
 # can run into the tens of thousands, so collection continues across days.

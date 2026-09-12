@@ -13,6 +13,14 @@ export type Gem = {
   hidden_gem_score: number;
 };
 
+/** One selectable filter value from /genres or /tags, with how many scored
+ * games carry it. Served by the API rather than hardcoded, because the
+ * hardcoded genre list went stale without anyone noticing. */
+export type Facet = {
+  value: string;
+  count: number;
+};
+
 export type Filters = {
   genre: string;
   tag: string;

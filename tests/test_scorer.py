@@ -25,7 +25,9 @@ def test_percentile_rank_basic():
     assert percentile_rank(values, 25.0) == 0.5
 
 
-def _game(app_id, review_count, review_score_pct, owners_mid, genre="indie", year=2021):
+def _game(
+    app_id, review_count, review_score_pct, owners_mid, genre="indie", year=2021, is_dlc=False
+):
     owners_low = owners_mid - 5000
     owners_high = owners_mid + 5000
     return {
@@ -36,6 +38,7 @@ def _game(app_id, review_count, review_score_pct, owners_mid, genre="indie", yea
         "owners_high": owners_high,
         "cohort_genre": genre,
         "cohort_year": year,
+        "is_dlc": is_dlc,
     }
 
 
@@ -78,6 +81,36 @@ def test_score_games_skips_games_without_review_or_owner_data():
     ]
     results = score_games(games, prior_strength=50.0, min_cohort_size=1)
     assert [r["app_id"] for r in results] == [1]
+
+
+def test_score_games_skips_games_whose_genre_cohort_is_still_too_small():
+    """Percentiles against a cohort of one are noise with a number on it:
+    percentile_rank is inclusive-of-self, so the lone game scores quality
+    1.0 and exposure 1.0 and the webapp proudly renders "top 1%". Production
+    served exactly this for the single game in the "simulation" cohort."""
+    games = [
+        _game(1, review_count=1000, review_score_pct=90.0, owners_mid=10000, genre="indie"),
+        _game(2, review_count=1000, review_score_pct=80.0, owners_mid=20000, genre="indie"),
+        _game(3, review_count=145, review_score_pct=73.8, owners_mid=150000, genre="simulation"),
+    ]
+    results = score_games(games, prior_strength=50.0, min_cohort_size=2)
+
+    assert [r["app_id"] for r in results] == [1, 2]
+
+
+def test_score_games_excludes_dlc_from_scores_and_from_cohort_statistics():
+    """DLC reviews/owners ride on the base game, so a soundtrack in the
+    cohort drags every percentile in it."""
+    games = [
+        _game(1, review_count=1000, review_score_pct=90.0, owners_mid=10000),
+        _game(2, review_count=1000, review_score_pct=80.0, owners_mid=20000),
+        _game(3, review_count=10, review_score_pct=100.0, owners_mid=30000, is_dlc=True),
+    ]
+    results = score_games(games, prior_strength=50.0, min_cohort_size=2)
+    without_dlc = score_games(games[:2], prior_strength=50.0, min_cohort_size=2)
+
+    assert [r["app_id"] for r in results] == [1, 2]
+    assert results == without_dlc
 
 
 def test_score_games_includes_games_with_zero_review_count():

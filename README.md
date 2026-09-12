@@ -39,7 +39,12 @@ uvicorn tracker.api.app:app --reload
 
 `GET /games/gems`가 핵심 엔드포인트로, `Game`과 `GameScore`를 조인해
 `hidden_gem_score` 내림차순으로 정렬한 결과를 반환한다. `genre`, `tag`,
-`max_price_cents`, `limit` 쿼리 파라미터로 필터링할 수 있다.
+`max_price_cents`, `limit`(1~200) 쿼리 파라미터로 필터링할 수 있으며,
+필터·정렬·개수 제한은 전부 SQL에서 처리된다. DLC는 제외된다.
+
+`GET /genres`와 `GET /tags?genre=...`는 웹앱의 필터 선택지를 실제 데이터에서
+만들어 준다(`{value, count}` 목록). 하드코딩된 목록이 데이터와 어긋나
+조용히 0건을 반환하던 문제를 막기 위한 것이다.
 
 ## 파이프라인 실행
 
@@ -47,10 +52,30 @@ uvicorn tracker.api.app:app --reload
 python scripts/run_pipeline.py
 ```
 
-Steam/SteamSpy 수집(`collect_games`, Phase B에서 구현 예정) →
-정규화(`run_normalizer`) → 점수 계산(`run_scorer`) → `pipeline_runs`에 실행
-기록 저장까지 한 번에 수행한다. `.github/workflows/pipeline.yml`이 이
-스크립트를 주기적으로(또는 수동으로) 실행한다.
+Steam/SteamSpy 수집(`collect_games`) → 정규화(`run_normalizer`) →
+점수 계산(`run_scorer`) → `pipeline_runs`에 실행 기록 저장까지 한 번에
+수행한다. `.github/workflows/pipeline.yml`이 이 스크립트를 주기적으로(또는
+수동으로) 실행한다.
+
+### 장르와 태그
+
+수집 대상 장르는 `tracker.config.TARGET_GENRES`(현재 `["Simulation", "Indie"]`,
+구체적인 순서대로). 게임을 처음 발견한 SteamSpy 장르 목록이 그대로
+`cohort_genre`가 되며, Steam appdetails의 `genres[0]`은 쓰지 않는다 — 그 배열은
+장르 ID 순이라 Action·Adventure로 쏠린다.
+
+`roguelike`, `management`는 SteamSpy에 장르로 존재하지 않아(요청 시 `{}` 반환)
+목록에서 뺐다. 둘 다 Steam **태그**이므로 태그 필터로 찾는다.
+
+### 과거 데이터 보정
+
+수집기가 태그와 `source_genre`를 저장하기 전에 모아둔 `games_raw` 행은
+아래 스크립트로 보정한다. 두 단계 모두 중단 후 재개해도 안전하다.
+
+```bash
+python scripts/backfill_steamspy.py --phase source-genre   # SteamSpy 호출 2번, 수 초
+python scripts/backfill_steamspy.py --phase tags           # 게임당 1회, 1req/sec
+```
 
 ## 웹앱 (`web/`)
 
@@ -65,7 +90,9 @@ Next.js(App Router) + Tailwind CSS로 만든 검색 UI로, `NEXT_PUBLIC_API_BASE
 필터 상태는 URL 쿼리스트링에 유지된다.
 
 - `/` — 필터(장르/태그/예산), 품질·노출 백분위 사분면 산점도, 랭킹 카드 그리드.
-  카드나 산점도 점을 클릭하면 점수 근거를 보여주는 상세 모달이 열린다.
+  카드 제목이나 산점도 점을 클릭하면 점수 근거를 보여주는 상세 모달이 열리고,
+  카드·모달 모두 Steam 상점으로 링크된다. 헤더와 제목은 서버에서 렌더링되고,
+  URL 쿼리를 읽는 탐색 UI만 Suspense 경계 안에서 클라이언트 렌더링된다.
 - `/about` — 스코어링 로직·데이터 소스·한계를 설명하는 방법론 페이지.
 
 디자인 토큰(`web/app/globals.css`)과 컴포넌트 인벤토리는

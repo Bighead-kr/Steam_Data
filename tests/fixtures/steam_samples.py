@@ -1,7 +1,15 @@
 """Hand-written Steam Store API (appdetails) + SteamSpy response samples.
 
-Shape: raw = {"appdetails": {...}, "steamspy": {...}}. This is the dict
-stored verbatim in games_raw.raw_json and consumed by normalize_game().
+Shape: raw = {"appdetails": {...}, "steamspy": {...}, "source_genre": "..."}.
+This is the dict stored verbatim in games_raw.raw_json and consumed by
+normalize_game().
+
+A warning, learned the hard way: most `steamspy` blobs below carry a `tags`
+dict, but SteamSpy's *genre listing* - the only SteamSpy call the collector
+used to make - returns no `tags` key at all. Every one of these fixtures
+passed while production served 9,715 games with an empty tag list and a tag
+filter that could never match. RAW_GENRE_LISTING_SHAPE pins the real,
+tag-less shape so that can't happen again.
 """
 
 RAW_ROGUELIKE = (
@@ -259,6 +267,72 @@ RAW_CONTENT_DESCRIPTORS_ONLY = (
             "owners": "20,000 .. 50,000",
             "average_forever": 0,
         },
+    },
+)
+
+RAW_GENRE_LISTING_SHAPE = (
+    100013,
+    {
+        # Exactly what a row collected from SteamSpy's `request=genre`
+        # listing looks like: no `tags` key, no `genre` key. Verified live -
+        # the listing record stops at `ccu`.
+        "appdetails": {
+            "name": "Collected Before Tags Existed",
+            "type": "game",
+            "is_free": False,
+            "price_overview": {"currency": "USD", "final": 1299},
+            "genres": [{"id": "1", "description": "Action"}, {"id": "23", "description": "Indie"}],
+            "release_date": {"coming_soon": False, "date": "Feb 2, 2022"},
+        },
+        "steamspy": {
+            "appid": 100013,
+            "name": "Collected Before Tags Existed",
+            "developer": "Nobody",
+            "publisher": "Nobody",
+            "score_rank": "",
+            "positive": 400,
+            "negative": 40,
+            "userscore": 0,
+            "owners": "20,000 .. 50,000",
+            "average_forever": 90,
+            "average_2weeks": 0,
+            "median_forever": 60,
+            "median_2weeks": 0,
+            "price": "1299",
+            "initialprice": "1299",
+            "discount": "0",
+            "ccu": 12,
+        },
+    },
+)
+
+RAW_SOURCE_GENRE = (
+    100014,
+    {
+        # A row collected after the collector started recording which
+        # SteamSpy genre list surfaced the app. Steam's own genres array
+        # leads with Action here, but the game was found in the Simulation
+        # list and that is the cohort it belongs in.
+        "appdetails": {
+            "name": "Action Flavoured Sim",
+            "type": "game",
+            "is_free": False,
+            "price_overview": {"currency": "USD", "final": 1999},
+            "genres": [
+                {"id": "1", "description": "Action"},
+                {"id": "28", "description": "Simulation"},
+            ],
+            "release_date": {"coming_soon": False, "date": "Apr 4, 2023"},
+        },
+        "steamspy": {
+            "genre": "Action, Simulation",
+            "tags": {"Management": 300, "Roguelike": 120},
+            "positive": 900,
+            "negative": 100,
+            "owners": "50,000 .. 100,000",
+            "average_forever": 250,
+        },
+        "source_genre": "Simulation",
     },
 )
 

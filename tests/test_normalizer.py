@@ -4,10 +4,12 @@ from fixtures.steam_samples import (
     RAW_CONTENT_DESCRIPTORS_ONLY,
     RAW_DLC,
     RAW_FREE_TO_PLAY,
+    RAW_GENRE_LISTING_SHAPE,
     RAW_GENRE_STRING_ONLY,
     RAW_MISSING_RELEASE_DATE,
     RAW_PRICE_OVERVIEW_NULL,
     RAW_ROGUELIKE,
+    RAW_SOURCE_GENRE,
     RAW_STEAMSPY_TAGS_ARRAY,
 )
 
@@ -88,6 +90,32 @@ def test_normalize_cohort_genre_falls_back_to_unknown_when_only_descriptors():
     app_id, raw = RAW_CONTENT_DESCRIPTORS_ONLY
     result = normalize_game(app_id, raw)
     assert result["cohort_genre"] == "unknown"
+
+
+def test_normalize_uses_source_genre_as_the_cohort_key():
+    """The SteamSpy list an app was collected from beats Steam's own
+    genres[0]. Steam orders that array by genre id, so Action (id 1) crowds
+    out Simulation (id 28) on any game carrying both - on the production
+    table genres[0] produced 4,558 "action" cohorts and exactly one
+    "simulation", making the webapp's genre filter useless."""
+    app_id, raw = RAW_SOURCE_GENRE
+    result = normalize_game(app_id, raw)
+    assert result["genres"][0] == "Action"  # raw genre order preserved
+    assert result["cohort_genre"] == "simulation"
+
+
+def test_normalize_genre_listing_shape_yields_no_tags():
+    """Pins the bug that shipped: a row collected from SteamSpy's genre
+    listing has no `tags` key whatsoever, so it normalizes to an empty tag
+    list. Such rows need the per-app SteamSpy call (see the collector) or
+    the tag backfill - they are not something normalize_game can rescue."""
+    app_id, raw = RAW_GENRE_LISTING_SHAPE
+    result = normalize_game(app_id, raw)
+    assert result is not None
+    assert result["tags"] == []
+    # ...and with no source_genre recorded either, it falls back to Steam's
+    # genre order, which is exactly how "action" came to dominate.
+    assert result["cohort_genre"] == "action"
 
 
 def test_normalize_handles_steamspy_tags_as_array():

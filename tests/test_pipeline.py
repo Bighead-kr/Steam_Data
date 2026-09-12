@@ -9,9 +9,10 @@ from fixtures.steam_samples import (
     RAW_LOW_REVIEW_COUNT,
     RAW_MALFORMED_RECORD,
     RAW_MISSING_RELEASE_DATE,
+    RAW_PRICE_OVERVIEW_NULL,
     RAW_ROGUELIKE,
 )
-from sqlalchemy import select
+from sqlalchemy import insert, select
 from testcontainers.postgres import PostgresContainer
 
 from tracker.models import Base, Game, GameRaw, GameScore
@@ -203,11 +204,12 @@ def test_run_normalizer_and_run_scorer_chunk_across_batches(db_session_factory):
         [
             RAW_ROGUELIKE,
             RAW_FREE_TO_PLAY,
-            RAW_DLC,
+            RAW_PRICE_OVERVIEW_NULL,
             RAW_GENRE_STRING_ONLY,
             RAW_LOW_REVIEW_COUNT,
         ]
     )
+    app_ids = {100001, 100002, 100008, 100006, 100005}
 
     with db_session_factory() as session:
         upsert_raw_games(session, records)
@@ -222,7 +224,39 @@ def test_run_normalizer_and_run_scorer_chunk_across_batches(db_session_factory):
         assert scored >= 5
 
         games = session.execute(select(Game)).scalars().all()
-        assert {100001, 100002, 100003, 100006, 100005} <= {g.app_id for g in games}
+        assert app_ids <= {g.app_id for g in games}
 
         scores = session.execute(select(GameScore)).scalars().all()
-        assert {100001, 100002, 100003, 100006, 100005} <= {s.app_id for s in scores}
+        assert app_ids <= {s.app_id for s in scores}
+
+
+def test_run_scorer_excludes_dlc_and_deletes_its_stale_score(db_session_factory):
+    """DLC is normalized (it's a real Steam app) but must never be scored:
+    its reviews and owners ride on the base game, so letting it into a
+    cohort skews every percentile in it. A score written before this rule
+    existed has to be cleaned up too, not just left in place by the upsert."""
+    with db_session_factory() as session:
+        upsert_raw_games(session, dict([RAW_ROGUELIKE, RAW_FREE_TO_PLAY, RAW_DLC]))
+        session.commit()
+        run_normalizer(session)
+        session.commit()
+
+        # A stale score, as an older scorer would have written it.
+        session.execute(
+            insert(GameScore).values(
+                app_id=100003,
+                quality_score=90.0,
+                quality_pctile=1.0,
+                exposure_pctile=1.0,
+                hidden_gem_score=0.0,
+                computed_at=dt.datetime.now(dt.UTC),
+            )
+        )
+        session.commit()
+
+        run_scorer(session, prior_strength=50.0, min_cohort_size=1)
+        session.commit()
+
+        assert session.get(Game, 100003) is not None
+        assert session.get(GameScore, 100003) is None
+        assert session.get(GameScore, 100001) is not None

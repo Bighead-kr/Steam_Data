@@ -49,6 +49,27 @@ describe("GameCard", () => {
     expect(handleSelect).toHaveBeenCalledWith(baseGem);
   });
 
+  it("opens the detail via a real button, so a keyboard can reach it", () => {
+    /** The card used to be an <article onClick>: clickable with a mouse and
+     * invisible to tab navigation. */
+    render(<GameCard gem={baseGem} onSelect={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Dungeon of Echoes" })).toBeInTheDocument();
+  });
+
+  it("links out to the game's Steam store page", () => {
+    /** The whole point of the site is to send you to a game you hadn't heard
+     * of; the card had no way to reach one. */
+    render(<GameCard gem={baseGem} />);
+    const link = screen.getByRole("link", { name: /Steam 상점에서 보기/ });
+    expect(link).toHaveAttribute("href", "https://store.steampowered.com/app/1/");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("shows the game's tags", () => {
+    render(<GameCard gem={baseGem} />);
+    expect(screen.getByText("Roguelike")).toBeInTheDocument();
+  });
+
   it("shows a 숨은 명작 badge when the gem is in the hidden-gem zone", () => {
     render(<GameCard gem={{ ...baseGem, quality_pctile: 0.9, exposure_pctile: 0.1 }} />);
     expect(screen.getByText("숨은 명작")).toBeInTheDocument();
