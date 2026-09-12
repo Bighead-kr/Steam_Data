@@ -40,14 +40,16 @@ def main() -> None:
     started_at = dt.datetime.now(dt.UTC)
 
     total_collected = 0
-    # run_normalizer()/run_scorer() scan the whole games_raw/games tables on
-    # every call, so their return values already describe the full current
-    # state, not just the latest batch's delta - keep only the most recent
-    # call's numbers for the summary row, never sum them across batches (an
-    # earlier version summed these and reported games_new=723 for a 100-game
-    # run instead of the correct ~100).
-    processed = 0
-    skipped = 0
+    # run_normalizer() is now scoped to just the current batch's app_ids
+    # (not a full games_raw scan - see its docstring), so its return value
+    # is a per-batch delta and must be summed across batches for the
+    # summary row. run_scorer() still scans the whole `games` table (much
+    # smaller than games_raw's raw_json blobs) on every call, so its return
+    # value already describes the full current state - keep only the most
+    # recent call's number for that one, never sum it (an earlier version
+    # summed a full-state number across batches and reported a wrong total).
+    processed_total = 0
+    skipped_total = 0
     scored = 0
 
     try:
@@ -67,7 +69,16 @@ def main() -> None:
                 # actually queries - stay current while a large run is still
                 # in progress, instead of only updating once the whole run
                 # (which can take hours) finishes or fails.
-                processed, skipped = run_normalizer(session)
+                #
+                # app_ids=records.keys() scopes the normalizer to just this
+                # batch instead of re-scanning all of games_raw (whose
+                # raw_json blobs run several KB each) on every iteration -
+                # doing that scan every batch was pulling the whole,
+                # ever-growing raw table over the wire dozens of times per
+                # run and was the main driver of a Supabase egress overage.
+                processed, skipped = run_normalizer(session, app_ids=records.keys())
+                processed_total += processed
+                skipped_total += skipped
                 scored = run_scorer(
                     session,
                     prior_strength=settings.bayesian_prior_strength,
@@ -89,9 +100,9 @@ def main() -> None:
                 run_id=run_id,
                 status="ok",
                 games_collected=total_collected,
-                games_new=processed,
+                games_new=processed_total,
                 started_at=started_at,
-                notes=f"skipped={skipped} scored={scored}",
+                notes=f"skipped={skipped_total} scored={scored}",
             )
             session.commit()
     except Exception as exc:
@@ -101,7 +112,7 @@ def main() -> None:
                 run_id=run_id,
                 status="failed",
                 games_collected=total_collected,
-                games_new=processed,
+                games_new=processed_total,
                 started_at=started_at,
                 notes=str(exc),
             )
