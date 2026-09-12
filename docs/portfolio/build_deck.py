@@ -109,6 +109,25 @@ def by_name(slide) -> dict:
     return {sh.name: sh for sh in slide.shapes}
 
 
+def fit_big_number(shape, text: str) -> None:
+    """Write the headline figure and shrink it to fit its box.
+
+    The template sized this box for two digits at 196pt, so anything longer
+    runs off the slide - which is a bad reason to round 18.5 down to 19 on a
+    slide whose whole point is that precision was checked. Digits in Poppins
+    SemiBold run about 0.55em, separators about 0.30em.
+    """
+    from pptx.util import Pt
+
+    box_inches = 4.9
+    width_em = sum(0.30 if ch in ".," else 0.55 for ch in text)
+    size = min(196, int(72 * box_inches / width_em)) if width_em else 196
+    set_lines(shape, [text])
+    for para in shape.text_frame.paragraphs:
+        for run in para.runs:
+            run.font.size = Pt(size)
+
+
 def clone_row(slide, label_shape, value_shape, dy_inches: float, label: str, value: str) -> None:
     """Add one more row to a label/value list by copying an existing row and
     dropping it `dy_inches` lower. The template's rows are individual text
@@ -399,14 +418,14 @@ def _result(slide, *, keyword, title, date, role, result, top, bottom):
     set_lines(shapes["TextBox 25"], [result])
 
     big, unit, headline, subhead, detail = top
-    set_lines(shapes["TextBox 16"], [big])
+    fit_big_number(shapes["TextBox 16"], big)
     set_lines(shapes["TextBox 18"], [unit])
     set_lines(shapes["TextBox 13"], [headline])
     set_lines(shapes["TextBox 14"], [subhead])
     set_lines(shapes["TextBox 15"], detail)
 
     big, unit, headline, subhead, detail = bottom
-    set_lines(shapes["TextBox 17"], [big])
+    fit_big_number(shapes["TextBox 17"], big)
     set_lines(shapes["TextBox 19"], [unit])
     set_lines(shapes["TextBox 10"], [headline])
     set_lines(shapes["TextBox 11"], [subhead])
@@ -429,14 +448,17 @@ def result_ga4_finding(slide) -> None:
         date="2026.08 - 2026.09",
         role="1인 분석 (정의 · SQL · 시각화 · 실험설계)",
         result="채널이 아니라 결제 플로우가 병목",
+        # The headline figure has to carry the conclusion. '7배' shouted
+        # "huge difference" directly above a headline saying the differences
+        # didn't matter - the number was arguing against its own slide.
         top=(
-            "7",
-            "배",
-            "볼륨은 갈리지만 유저 질은 같다",
-            "채널 간 트래픽 볼륨 격차 최대 7배",
+            "0.1",
+            "%p",
+            "채널을 바꿔도 전환율은 0.1%p 안에서 움직였다",
+            "볼륨은 최대 7배 차이인데도 (Organic 37.7% vs Paid 5.3%)",
             [
-                "Organic 37.7% vs Paid 5.3% — 볼륨은 최대 7배 차이",
-                "도달률 21.8~22.8% · 전환율 1.52~1.63% · 객단가 $46~49 · 재방문 5.04~5.26%",
+                "전환율 1.52~1.63% · 도달률 21.8~22.8% · 객단가 $46~49 · 재방문 5.04~5.26%",
+                "4개 독립 분석 모두에서 채널 간 유저 질 차이가 나타나지 않았습니다.",
             ],
         ),
         bottom=(
@@ -490,21 +512,24 @@ def result_steam(slide) -> None:
         date="2026.09 - 현재",
         role="1인 개발 (ETL · DB · API · 웹앱 · 배포)",
         result="배포 후 실데이터 재점검으로 죽어 있던 기능 3건 발견",
+        # 127 is not the finding, it is the irony's setup - the damage is the
+        # figure worth enlarging. Same below: the point is "all of them",
+        # which reads as 100%, not as a row count.
         top=(
-            "127",
-            "개",
-            "테스트는 전부 통과하고 있었다",
-            "그런데도 배포된 사이트의 기능 3건이 죽어 있었습니다",
+            "3",
+            "건",
+            "배포된 사이트에서 죽어 있던 기능",
+            "테스트 127개는 그동안 전부 통과하고 있었습니다",
             [
                 "원인은 테스트 픽스처가 실제 API 응답보다 관대했던 것 —",
                 "외부 API의 실제 응답 형태를 픽스처로 고정해 재발을 막았습니다.",
             ],
         ),
         bottom=(
-            "9,715",
-            "건",
-            "태그가 전 건 비어 있었다",
-            "SteamSpy 장르 목록 응답에 tags 키가 없다는 것을 실데이터에서 확인",
+            "100",
+            "%",
+            "태그 누락률",
+            "9,715건 전부 — 태그 필터가 한 건도 매칭될 수 없는 상태였습니다",
             [
                 "코호트 장르도 한쪽으로 쏠려(action 4,558건 vs simulation 1건) 필터가",
                 "무의미했습니다. 장르 기준을 재정의하고 API 쿼리를 SQL로 내렸습니다.",
