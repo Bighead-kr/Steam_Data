@@ -7,3 +7,8 @@ __pycache__/
 *.egg-info/
 .worktrees/
 .DS_Store
+
+# Portfolio deck: the template and the generated file are multi-MB binaries,
+# and profile.local.json holds a phone number and email - this repo is public.
+docs/portfolio/*.pptx
+docs/portfolio/profile.local.json
