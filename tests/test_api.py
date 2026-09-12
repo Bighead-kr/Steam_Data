@@ -24,7 +24,7 @@ def client():
         session_factory = get_sessionmaker(db_url)
 
         with session_factory() as session:
-            records = dict([RAW_ROGUELIKE, RAW_FREE_TO_PLAY, RAW_GENRE_STRING_ONLY])
+            records = dict([RAW_ROGUELIKE, RAW_FREE_TO_PLAY, RAW_GENRE_STRING_ONLY, RAW_DLC])
             upsert_raw_games(session, records)
             session.commit()
             run_normalizer(session)
@@ -53,9 +53,51 @@ def test_list_gems_returns_ranked_results(client):
     response = client.get("/games/gems")
     assert response.status_code == 200
     body = response.json()
+    # 4 games are seeded; the 4th is DLC and must not be ranked among games.
     assert len(body) == 3
+    assert "Dungeon of Echoes: Soundtrack" not in {g["name"] for g in body}
     scores = [g["hidden_gem_score"] for g in body]
     assert scores == sorted(scores, reverse=True)
+
+
+def test_list_gems_rejects_an_unbounded_limit(client):
+    """`limit` reaches the database now, so it needs a ceiling - the old
+    handler answered limit=100000 by materialising the entire table."""
+    assert client.get("/games/gems", params={"limit": 100000}).status_code == 422
+    assert client.get("/games/gems", params={"limit": 0}).status_code == 422
+
+
+def test_list_gems_applies_limit_in_sql(client):
+    response = client.get("/games/gems", params={"limit": 1})
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+def test_list_genres_reports_only_genres_with_scored_games(client):
+    response = client.get("/genres")
+    assert response.status_code == 200
+    body = response.json()
+    by_value = {row["value"]: row["count"] for row in body}
+    assert by_value == {"indie": 2, "simulation": 1}
+    # Ordered by count, so the webapp's dropdown leads with the biggest cohort.
+    assert [row["value"] for row in body] == ["indie", "simulation"]
+
+
+def test_list_tags_returns_real_tag_values_with_counts(client):
+    """The webapp used to ask for tags through a free-text box, which is a
+    spelling test the user loses: SteamSpy's tags are exact-cased strings."""
+    response = client.get("/tags")
+    assert response.status_code == 200
+    by_value = {row["value"]: row["count"] for row in response.json()}
+    assert by_value["Roguelike"] == 2
+    assert by_value["Pixel Graphics"] == 1
+
+
+def test_list_tags_scopes_to_a_genre(client):
+    response = client.get("/tags", params={"genre": "simulation"})
+    assert response.status_code == 200
+    # Farm Manager Deluxe is the only simulation game and it has no tags.
+    assert response.json() == []
 
 
 def test_list_gems_filters_by_genre(client):
@@ -77,9 +119,10 @@ def test_list_gems_tag_filter_applies_before_limit():
     """Regression test: the tag filter must apply to the full candidate set
     *before* slicing to `limit`, not after. Seeds 4 games where only 2 carry
     the "Roguelike" tag, with `limit=3` (greater than the 2 tag-matching
-    games, less than the 4 total games). If a future change moved the
-    `limit` into the SQL query (applied before the Python tag filter), this
-    would risk returning fewer than the 2 tag-matching games.
+    games, less than the 4 total games). Both the filter and the limit live
+    in SQL now (`tags @> '["Roguelike"]'` plus LIMIT), which keeps that
+    ordering by construction - this test guards against a regression to
+    "fetch everything, slice, then filter in Python".
     """
     with PostgresContainer("postgres:16", driver="psycopg") as postgres:
         db_url = postgres.get_connection_url()

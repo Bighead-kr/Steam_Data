@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy import DateTime, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -23,6 +23,9 @@ class GameRaw(Base):
 
 class Game(Base):
     __tablename__ = "games"
+    # GIN is what answers the API's tag filter (`tags @> '["Roguelike"]'`);
+    # it can't be expressed as index=True on the column.
+    __table_args__ = (Index("ix_games_tags", "tags", postgresql_using="gin"),)
 
     app_id: Mapped[int] = mapped_column(ForeignKey("games_raw.app_id"), primary_key=True)
     name: Mapped[str]
@@ -36,7 +39,7 @@ class Game(Base):
     owners_low: Mapped[int | None]
     owners_high: Mapped[int | None]
     avg_playtime_min: Mapped[int | None]
-    cohort_genre: Mapped[str]
+    cohort_genre: Mapped[str] = mapped_column(index=True)
     cohort_year: Mapped[int]
 
 
@@ -47,7 +50,8 @@ class GameScore(Base):
     quality_score: Mapped[float]
     quality_pctile: Mapped[float]
     exposure_pctile: Mapped[float]
-    hidden_gem_score: Mapped[float]
+    # The API's only ordering; every gems query walks this index.
+    hidden_gem_score: Mapped[float] = mapped_column(index=True)
     computed_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

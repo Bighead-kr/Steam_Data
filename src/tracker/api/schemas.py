@@ -1,6 +1,13 @@
 from pydantic import BaseModel
 
 
+class FacetValue(BaseModel):
+    """One selectable filter value plus how many scored games carry it."""
+
+    value: str
+    count: int
+
+
 class GemResponse(BaseModel):
     app_id: int
     name: str
