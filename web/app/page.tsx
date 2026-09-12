@@ -1,47 +1,16 @@
-"use client";
+import { Suspense } from "react";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ExplorerSkeleton } from "../components/ExplorerSkeleton";
+import { GemExplorer } from "../components/GemExplorer";
 
-import { EmptyState } from "../components/EmptyState";
-import { FilterPanel } from "../components/FilterPanel";
-import { GameCard } from "../components/GameCard";
-import { GameDetailModal } from "../components/GameDetailModal";
-import { GemScatterChart } from "../components/GemScatterChart";
-import { buildApiQuery, buildSearchParams, parseFiltersFromSearchParams } from "../lib/filterQuery";
-import type { Filters, Gem } from "../lib/types";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-const CHART_LIMIT = 200;
-const CARD_LIMIT = 30;
-
-function HomePageContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [filters, setFilters] = useState<Filters>(() => parseFiltersFromSearchParams(searchParams));
-  const [gems, setGems] = useState<Gem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<Gem | null>(null);
-
-  const runSearch = useCallback(
-    async (nextFilters: Filters) => {
-      setLoading(true);
-      const query = buildApiQuery(nextFilters, CHART_LIMIT);
-      const response = await fetch(`${API_BASE}/games/gems?${query.toString()}`);
-      const data: Gem[] = await response.json();
-      setGems(data);
-      setLoading(false);
-      router.replace(`${pathname}?${buildSearchParams(nextFilters).toString()}`);
-    },
-    [pathname, router]
-  );
-
-  useEffect(() => {
-    runSearch(filters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+// A server component on purpose. Everything that reads the URL query string
+// (and so opts out of static rendering) lives inside GemExplorer, behind the
+// Suspense boundary below - the heading and the explanation render on the
+// server and are in the HTML before any JavaScript runs. When the whole page
+// was one "use client" component wrapped in <Suspense fallback={null}>, Next
+// bailed the entire route out to client rendering and shipped an empty
+// <body>.
+export default function HomePage() {
   return (
     <main className="mx-auto max-w-[1120px] px-6 py-10">
       <header className="flex items-center justify-between">
@@ -56,38 +25,9 @@ function HomePageContent() {
       <p className="text-ink-secondary mt-2 text-sm">
         장르·태그·예산을 고르면 품질 대비 저평가된 게임을 백분위 근거와 함께 보여줍니다.
       </p>
-      <div className="mt-8 grid gap-6 lg:grid-cols-[320px_1fr]">
-        <FilterPanel
-          filters={filters}
-          loading={loading}
-          onChange={setFilters}
-          onSubmit={() => runSearch(filters)}
-        />
-        <GemScatterChart gems={gems} onSelect={setSelected} />
-      </div>
-      <section className="mt-8">
-        {gems.length === 0 && !loading ? (
-          <EmptyState />
-        ) : (
-          <div className="grid gap-x-6 sm:grid-cols-2 lg:grid-cols-3">
-            {gems.slice(0, CARD_LIMIT).map((gem) => (
-              <GameCard key={gem.app_id} gem={gem} onSelect={setSelected} />
-            ))}
-          </div>
-        )}
-      </section>
-      {selected && <GameDetailModal gem={selected} onClose={() => setSelected(null)} />}
+      <Suspense fallback={<ExplorerSkeleton />}>
+        <GemExplorer />
+      </Suspense>
     </main>
-  );
-}
-
-// useSearchParams() opts a client component out of static rendering unless
-// it's wrapped in Suspense - without this, `next build` fails with
-// "useSearchParams() should be wrapped in a suspense boundary at page '/'".
-export default function HomePage() {
-  return (
-    <Suspense fallback={null}>
-      <HomePageContent />
-    </Suspense>
   );
 }
