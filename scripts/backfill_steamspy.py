@@ -123,6 +123,11 @@ def backfill_tags(session: Session, client: httpx.Client, limit: int | None) -> 
 
 
 def main() -> None:
+    # The tags phase runs for hours and its only progress report is these
+    # prints; piped to a file (nohup, a background job) Python block-buffers
+    # stdout and the file stays empty the whole time.
+    sys.stdout.reconfigure(line_buffering=True)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phase", choices=["source-genre", "tags", "all"], default="all")
     parser.add_argument("--limit", type=int, default=None, help="max rows for the tags phase")
